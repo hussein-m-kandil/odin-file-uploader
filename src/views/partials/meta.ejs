@@ -1,0 +1,32 @@
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="author" content="Hussein Kandil" />
+<link rel="shortcut icon" href="/top.svg" type="image/svg+xml" />
+<title><%= title %></title>
+<link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css" />
+<script src="/bootstrap/js/bootstrap.bundle.min.js"></script>
+<style>
+  body,
+  input,
+  textarea {
+    color: var(--bs-primary) !important;
+  }
+
+  label {
+    --bs-text-opacity: 0.75;
+    color: rgba(var(--bs-primary-rgb), var(--bs-text-opacity)) !important;
+  }
+
+  body > .container {
+    max-width: 720px !important;
+    padding-top: 5rem !important;
+  }
+
+  nav a:focus-visible,
+  nav a:focus {
+    outline: none !important;
+    border-radius: 0.25rem !important;
+    border-color: var(--bs-white) !important;
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-white-rgb), 0.2) !important;
+  }
+</style>

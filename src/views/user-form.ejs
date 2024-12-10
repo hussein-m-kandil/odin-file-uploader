@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('partials/meta', { title }) %>
+  </head>
+  <body>
+    <%- include('partials/navbar') %>
+    <div class="container mt-4">
+      <header>
+        <%- include('partials/alert') %>
+        <h2 class="mb-4 fw-bold"><%= title %></h2>
+      </header>
+      <form method="post">
+        <div class="form-floating mb-3">
+          <% const usernameErr = locals.validationErrors?.username %>
+          <input
+            type="text"
+            class="fw-bold form-control<%- usernameErr ? ' is-invalid' : '' %>"
+            name="username"
+            id="username"
+            autocomplete="off"
+            placeholder="Enter Username"
+            value="<%= locals.formData ? formData.username : '' %>"
+            autofocus
+          />
+          <label for="username">Enter Username</label>
+          <% if (usernameErr) { %>
+          <div class="invalid-feedback"><%= usernameErr.msg %></div>
+          <% } %>
+        </div>
+        <div class="form-floating mb-3">
+          <% const passwordErr = locals.validationErrors?.password %>
+          <input
+            type="password"
+            class="fw-bold form-control<%- passwordErr ? ' is-invalid' : '' %>"
+            name="password"
+            id="password"
+            autocomplete="off"
+            placeholder="Enter Password"
+            value="<%= locals.formData ? formData.password : '' %>"
+          />
+          <label for="password">Enter Password</label>
+          <% if (passwordErr) { %>
+          <div class="invalid-feedback"><%= passwordErr.msg %></div>
+          <% } %>
+        </div>
+        <% if (locals.fullForm) { %>
+        <div class="form-floating mb-3">
+          <%const passwordConfErr=locals.validationErrors?.password_confirm%>
+          <input
+            type="password"
+            class="fw-bold form-control<%- passwordConfErr ? ' is-invalid' : '' %>"
+            name="password_confirm"
+            id="password_confirm"
+            autocomplete="off"
+            placeholder="Confirm Password"
+            value="<%= locals.formData ? formData.password_confirm : '' %>"
+          />
+          <label for="password_confirm">Confirm Password</label>
+          <% if (passwordConfErr) { %>
+          <div class="invalid-feedback"><%= passwordConfErr.msg %></div>
+          <% } %>
+        </div>
+        <div class="form-floating mb-3">
+          <% const fullnameErr = locals.validationErrors?.fullname %>
+          <input
+            type="text"
+            class="fw-bold form-control<%- fullnameErr ? ' is-invalid' : '' %>"
+            name="fullname"
+            id="fullname"
+            autocomplete="off"
+            placeholder="Enter Full Name"
+            value="<%= locals.formData ? formData.fullname : '' %>"
+          />
+          <label for="fullname">Enter Full Name</label>
+          <% if (fullnameErr) { %>
+          <div class="invalid-feedback"><%= fullnameErr.msg %></div>
+          <% } %>
+        </div>
+        <% } %>
+        <div class="text-end">
+          <button type="submit" class="btn btn-outline-primary btn-lg">
+            <%= title %>
+          </button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>

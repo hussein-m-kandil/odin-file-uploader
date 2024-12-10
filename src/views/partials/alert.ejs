@@ -1,0 +1,24 @@
+<% if (locals.error) { %>
+<div
+  id="error-alert"
+  class="alert alert-danger alert-dismissible fade show mb-4 fs-6"
+  role="alert"
+>
+  <p class="m-0"><%= error %></p>
+  <button
+    type="button"
+    class="btn-close"
+    data-bs-dismiss="alert"
+    aria-label="Close this validation error"
+  ></button>
+</div>
+<script>
+  const alert = document.getElementById('error-alert');
+  if (alert) {
+    alert.addEventListener('closed.bs.alert', () => {
+      var firstInput = document.getElementsByTagName('input')[0];
+      if (firstInput) firstInput.focus();
+    });
+  }
+</script>
+<% } %>

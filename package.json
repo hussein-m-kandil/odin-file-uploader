@@ -30,10 +30,25 @@
     "url": "https://github.com/hussein-m-kandil/odin-file-uploader/issues"
   },
   "homepage": "https://github.com/hussein-m-kandil/odin-file-uploader#readme",
+  "prisma": {
+    "schema": "./src/model/schema.prisma"
+  },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
     "@stylistic/eslint-plugin-js": "^2.12.0",
     "eslint": "^9.16.0",
-    "globals": "^15.13.0"
+    "globals": "^15.13.0",
+    "prisma": "^6.0.1"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.1",
+    "@quixo3/prisma-session-store": "^3.1.13",
+    "bcryptjs": "^2.4.3",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "express-validator": "^7.2.0",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0"
   }
 }
