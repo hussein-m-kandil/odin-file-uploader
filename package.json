@@ -1,0 +1,39 @@
+{
+  "name": "odin-file-uploader",
+  "version": "1.0.0",
+  "description": "\"A stripped-down version of personal storage service like Google Drive. Built as part of studying The Odin Project's Node.js course.\"",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --env-file=.env --watch app.js",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hussein-m-kandil/odin-file-uploader.git"
+  },
+  "keywords": [
+    "node",
+    "express",
+    "passport",
+    "express-session",
+    "ejs",
+    "prisma",
+    "postgresql",
+    "web-development",
+    "backend",
+    "bcrypt"
+  ],
+  "author": "\"Hussein Kandil\"",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hussein-m-kandil/odin-file-uploader/issues"
+  },
+  "homepage": "https://github.com/hussein-m-kandil/odin-file-uploader#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@stylistic/eslint-plugin-js": "^2.12.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0"
+  }
+}
