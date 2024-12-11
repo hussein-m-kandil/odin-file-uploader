@@ -142,4 +142,8 @@ module.exports = {
       });
     },
   ],
+
+  getUser: (req, res) => {
+    res.render('user', { title: req.user.username });
+  },
 };

@@ -3,6 +3,8 @@ const userController = require('../controllers/user-controller.js');
 
 const router = Router();
 
+router.get('/', userController.getUser);
+
 router
   .route('/login')
   .get(userController.getLogin)

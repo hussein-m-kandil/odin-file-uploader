@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('partials/meta', { title }) %>
+  </head>
+  <body>
+    <%- include('partials/navbar') %>
+    <div class="container mt-4">
+      <%- include('partials/alert') %>
+      <h2 class="mb-4 text-center fw-bold">
+        <%=`${user.fullname}`%>
+        <span class="fs-6 align-middle fw-normal">
+          (<%=`${user.username}`%>)
+        </span>
+      </h2>
+      <form class="d-flex flex-wrap gap-5 flex-column mt-5">
+        <button
+          formaction="<%= url %>/update"
+          formmethod="get"
+          type="submit"
+          class="btn btn-outline-primary"
+        >
+          Update your information
+        </button>
+        <button
+          formaction="<%= url %>/delete"
+          formmethod="post"
+          onclick="return confirm('Do you really want to delete your account?')"
+          type="submit"
+          class="btn btn-outline-danger"
+        >
+          Delete you account
+        </button>
+      </form>
+    </div>
+  </body>
+</html>
