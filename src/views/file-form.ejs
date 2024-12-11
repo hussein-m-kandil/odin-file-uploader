@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('partials/meta', { title }) %>
+  </head>
+  <body>
+    <%- include('partials/navbar') %>
+    <div class="container mt-4">
+      <header>
+        <p>
+          <a
+            class="link-offset-2 link-underline link-underline-opacity-50"
+            href="<%= url.split('/').slice(0, -1).join('/') %>"
+          >
+            &lt;&lt; Back
+            <!-- prettier-ignore -->
+            <% if (locals.parent) { %>
+            to <span class="fst-italic"><%= parent.name %></span>
+            <% } %>
+          </a>
+        </p>
+        <%- include('partials/alert') %>
+        <h2 class="mb-4 fw-bold"><%= title %></h2>
+      </header>
+      <form method="post">
+        <div class="form-floating mb-3">
+          <% const nameErr = locals.validationErrors?.name %>
+          <input
+            type="text"
+            class="fw-bold form-control<%- nameErr ? ' is-invalid' : '' %>"
+            name="name"
+            id="name"
+            autocomplete="off"
+            placeholder="Enter Name"
+            value="<%= locals.formData ? formData.name : '' %>"
+            autofocus
+          />
+          <label for="name">Enter Name</label>
+          <% if (nameErr) { %>
+          <div class="invalid-feedback"><%= nameErr.msg %></div>
+          <% } %>
+        </div>
+        <div class="text-end">
+          <button type="submit" class="btn btn-outline-primary btn-lg">
+            <%= title %>
+          </button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>

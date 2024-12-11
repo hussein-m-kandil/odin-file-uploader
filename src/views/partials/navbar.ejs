@@ -21,11 +21,11 @@
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
         <li class="nav-item">
           <a
-            class="nav-link<%- url === '/' ? ' active' : '' %>"
+            class="nav-link<%- url === '/files' ? ' active' : '' %>"
             aria-current="page"
             href="/"
           >
-            Home
+            My Files
           </a>
         </li>
         <% if (locals.user) { %>
@@ -38,24 +38,29 @@
             <%= user.username %>
           </a>
         </li>
-        <li class="nav-item">
+        <% if (locals.createDirUrl) { %>
+        <li class="nav-item fst-italic">
           <a
-            class="nav-link<%- url === '/files/add/dir' ? ' active' : '' %>"
+            class="nav-link<%- url === createDirUrl ? ' active' : '' %>"
             aria-current="page"
-            href="/files/add/dir"
+            href="<%= createDirUrl %>"
           >
-            New Folder
+            Create Folder
           </a>
         </li>
-        <li class="nav-item">
+        <% } %>
+        <!-- prettier-ignore -->
+        <% if (locals.uploadFileUrl) { %>
+        <li class="nav-item fst-italic">
           <a
-            class="nav-link<%- url === '/files/add/file' ? ' active' : '' %>"
+            class="nav-link<%- url === uploadFileUrl ? ' active' : '' %>"
             aria-current="page"
-            href="/files/add/file"
+            href="<%= uploadFileUrl %>"
           >
-            New File
+            Upload File
           </a>
         </li>
+        <% } %>
         <li class="nav-item">
           <a
             class="nav-link<%- url === '/logout' ? ' active' : '' %>"

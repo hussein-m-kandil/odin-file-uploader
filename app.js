@@ -3,6 +3,10 @@ const express = require('express');
 const authenticate = require('./src/auth/authenticate.js');
 const middlewares = require('./src/middlewares/middlewares.js');
 const userRouter = require('./src/routes/user-router.js');
+const {
+  router: filesRouter,
+  ...files
+} = require('./src/routes/files_router.js');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const VIEWS_DIR = path.join(__dirname, 'src/views');
@@ -22,17 +26,25 @@ app.use(middlewares.injectUserIntoLocals);
 app.use(middlewares.initFlashInSession);
 app.use(middlewares.injectErrorFlashIntoResLocals);
 
-const USER_ROUTE = '/user';
+const FILES_ENDPOINT = '/files';
+const USER_ENDPOINT = '/user';
+const injectCreateAndUploadUrls = (req, res, next) => {
+  res.locals.createDirUrl = `${FILES_ENDPOINT}${files.CREATE_DIR_ENDPOINT}`;
+  res.locals.uploadFileUrl = `${FILES_ENDPOINT}${files.UPLOAD_FILE_ENDPOINT}`;
+  next();
+};
 
 app.get('/', (req, res) => {
   if (req.isAuthenticated()) {
-    res.render('index', { title: 'Odin File Uploader' });
+    res.redirect(FILES_ENDPOINT);
   } else {
-    res.redirect(USER_ROUTE);
+    res.redirect(USER_ENDPOINT);
   }
 });
 
-app.use(USER_ROUTE, userRouter);
+app.use(injectCreateAndUploadUrls);
+app.use(USER_ENDPOINT, userRouter);
+app.use(FILES_ENDPOINT, filesRouter);
 
 app.use(middlewares.handleAppErrors);
 

@@ -7,9 +7,44 @@
     <%- include('partials/navbar') %>
     <div class="container mt-4">
       <%- include('partials/alert') %>
-      <p class="lead text-center">
-        Your files and folders will be shown here...
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <% if (!locals.file) { %>
+          <li class="breadcrumb-item active" aria-current="page">MyFiles</li>
+          <% } else { %>
+          <li class="breadcrumb-item" aria-current="page">
+            <a href="/files">MyFiles</a>
+          </li>
+          <% if (Array.isArray(locals.parents) && parents.length > 0) { %>
+          <!-- prettier-ignore -->
+          <% for (let i = parents.length - 1; i > -1; i--) { %>
+          <li class="breadcrumb-item" aria-current="page">
+            <a href="/files/<%= parents[i].id %>"><%= parents[i].name %></a>
+          </li>
+          <% } %>
+          <!-- prettier-ignore -->
+          <% } %>
+          <li class="breadcrumb-item active" aria-current="page">
+            <%= file.name %>
+          </li>
+          <% } %>
+        </ol>
+      </nav>
+      <!-- prettier-ignore -->
+      <% if (Array.isArray(locals.files) && files.length > 0) { %>
+      <!-- prettier-ignore -->
+      <ul>
+        <%files.forEach((file) => { %>
+          <li><a href="/files/<%= file.id %>"><%= file.name %></a></li>
+        <% }) %>
+      </ul>
+      <% } else { %>
+      <p class="text-center text-body-secondary">
+        There are no files or folders here! Consider
+        <a href="<%= url %>/create">creating a folder</a> or
+        <a href="<%= url %>/upload">uploading a file</a>
       </p>
+      <% } %>
     </div>
   </body>
 </html>
