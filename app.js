@@ -52,15 +52,17 @@ app.use(injectUserIntoLocals);
 app.use(initFlashInSession);
 app.use(injectErrorFlashIntoResLocals);
 
+const USER_ROUTE = '/user';
+
 app.get('/', (req, res) => {
   if (req.isAuthenticated()) {
     res.render('index', { title: 'Odin File Uploader' });
   } else {
-    res.redirect('/user/login');
+    res.redirect(USER_ROUTE);
   }
 });
 
-app.use('/user', userRouter);
+app.use(USER_ROUTE, userRouter);
 
 const handleAppErrors = (error, req, res, next) => {
   if (!(error instanceof AppGenericError) || error.statusCode === 404) {

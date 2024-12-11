@@ -9,9 +9,10 @@ const MIN_LEN = 3;
 const MAX_LEN = 50;
 const PASS_MIN_LEN = 8;
 const FULLNAME_MAX_LEN = 100;
-const SIGNUP_TITLE = 'Sign Up';
 const LOGIN_TITLE = 'Log In';
+const SIGNUP_TITLE = 'Sign Up';
 const USER_FORM_VIEW = 'user-form';
+const UPDATE_TITLE = 'Update your information';
 
 const genMinLenErrMsg = (prefix, min, suffix) => {
   return `${prefix} must have at least ${min} ${suffix || 'characters'}`;
@@ -21,7 +22,7 @@ const genMaxLenErrMsg = (prefix, max, suffix) => {
   return `${prefix} cannot have more than ${max} ${suffix || 'characters'}`;
 };
 
-const getUserFormValidators = (signup) => {
+const generateUserFormValidators = (signup) => {
   const isEqualPasswords = (_, { req }) => {
     const { password, password_confirm } = req.body;
     if (password !== password_confirm) {
@@ -118,7 +119,7 @@ module.exports = {
       res.locals.fullForm = true;
       next();
     },
-    ...getUserFormValidators(true),
+    ...generateUserFormValidators(true),
     (req, res) => {
       bcrypt.hash(req.body.password, SALT, async (err, hashedPassword) => {
         try {
@@ -145,5 +146,65 @@ module.exports = {
 
   getUser: (req, res) => {
     res.render('user', { title: req.user.username });
+  },
+
+  getUpdate: (req, res) => {
+    res.render(USER_FORM_VIEW, {
+      title: UPDATE_TITLE,
+      fullForm: true,
+      formData: {
+        username: req.user.username,
+        fullname: req.user.fullname,
+      },
+    });
+  },
+
+  postUpdate: [
+    (req, res, next) => {
+      res.locals.title = UPDATE_TITLE;
+      res.locals.formData = req.body;
+      res.locals.fullForm = true;
+      next();
+    },
+    ...generateUserFormValidators(false),
+    (req, res, next) => {
+      res.locals.error =
+        'Sorry, we cannot commit your updates! Try again later.';
+      if (!req.body.password) return next();
+      bcrypt.hash(req.body.password, SALT, async (err, passwordHash) => {
+        if (err) res.status(500).render(USER_FORM_VIEW);
+        res.locals.passwordHash = passwordHash;
+        next();
+      });
+    },
+    (req, res) => {
+      const { id } = req.user;
+      const data = {
+        username: req.body.username,
+        fullname: req.body.fullname,
+        password: res.locals.passwordHash,
+      };
+      prismaClient.user
+        .update({ where: { id }, data })
+        .then(() => res.redirect(req.baseUrl))
+        .catch(() => res.status(500).render(USER_FORM_VIEW));
+    },
+  ],
+
+  postDelete: (req, res, next) => {
+    const id = req.user.id;
+    req.logout((error) => {
+      if (error) {
+        return handleLogoutError(error, next);
+      }
+      prismaClient.user
+        .delete({ where: { id } })
+        .then(() => res.redirect('/'))
+        .catch((error) => {
+          console.log(error);
+          const msg = 'Cannot delete your account! Try again later.';
+          next(new AppGenericError(msg, 500));
+        });
+    });
   },
 };
