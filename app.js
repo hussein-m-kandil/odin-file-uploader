@@ -28,24 +28,24 @@ app.use(middlewares.injectErrorFlashIntoResLocals);
 
 const FILES_ENDPOINT = '/files';
 const USER_ENDPOINT = '/user';
+
 const injectCreateAndUploadUrls = (req, res, next) => {
   res.locals.createDirUrl = `${FILES_ENDPOINT}${files.CREATE_DIR_ENDPOINT}`;
   res.locals.uploadFileUrl = `${FILES_ENDPOINT}${files.UPLOAD_FILE_ENDPOINT}`;
   next();
 };
 
-app.get('/', (req, res) => {
-  if (req.isAuthenticated()) {
-    res.redirect(FILES_ENDPOINT);
-  } else {
-    res.redirect(USER_ENDPOINT);
-  }
-});
+const verifyUserAuthentication = (req, res, next) => {
+  if (req.isAuthenticated()) return next();
+  res.redirect(USER_ENDPOINT);
+};
 
-app.use(injectCreateAndUploadUrls);
+app.all('/', (req, res) => res.redirect(FILES_ENDPOINT));
+
 app.use(USER_ENDPOINT, userRouter);
+app.use(verifyUserAuthentication);
+app.use(injectCreateAndUploadUrls);
 app.use(FILES_ENDPOINT, filesRouter);
-
 app.use(middlewares.handleAppErrors);
 
 if (!process.env.SERVERLESS_FUNCTION) {

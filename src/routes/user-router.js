@@ -5,12 +5,10 @@ const router = Router();
 
 const LOGIN_ROUTE = '/login';
 
-const validateAuthentication = (req, res, next) => {
+const verifyUserAuthentication = (req, res, next) => {
   if (req.isAuthenticated()) return next();
   res.redirect(`${req.baseUrl}${LOGIN_ROUTE}`);
 };
-
-router.get('/', validateAuthentication, userController.getUser);
 
 router
   .route(LOGIN_ROUTE)
@@ -22,13 +20,17 @@ router
   .get(userController.getSignup)
   .post(userController.postSignup);
 
-router.get('/logout', validateAuthentication, userController.getLogout);
+router.use(verifyUserAuthentication);
+
+router.get('/', userController.getUser);
+
+router.get('/logout', userController.getLogout);
 
 router
   .route('/update')
-  .get(validateAuthentication, userController.getUpdate)
-  .post(validateAuthentication, userController.postUpdate);
+  .get(userController.getUpdate)
+  .post(userController.postUpdate);
 
-router.post('/delete', validateAuthentication, userController.postDelete);
+router.post('/delete', userController.postDelete);
 
 module.exports = router;
