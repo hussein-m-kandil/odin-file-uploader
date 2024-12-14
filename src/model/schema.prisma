@@ -32,10 +32,10 @@ model File {
   shared   Boolean @default(false)
   typeDir  Boolean @map("type_dir")
   parentId String? @map("parent_id") @db.Uuid
-  parent   File?   @relation("FileSysTree", fields: [parentId], references: [id])
+  parent   File?   @relation("FileSysTree", fields: [parentId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   children File[]  @relation("FileSysTree")
   ownerId  Int     @map("owner_id")
-  owner    User    @relation(fields: [ownerId], references: [id])
+  owner    User    @relation(fields: [ownerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@unique([name, parentId])
   @@map("files")
