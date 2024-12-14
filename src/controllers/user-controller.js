@@ -91,7 +91,11 @@ module.exports = {
       if (!user) {
         return res
           .status(404)
-          .render(USER_FORM_VIEW, { title: LOGIN_TITLE, error: info.message });
+          .render(USER_FORM_VIEW, {
+            title: LOGIN_TITLE,
+            error: info.message,
+            formData: req.body,
+          });
       }
       // Pass the user to req.login(user, next), otherwise, the session won't gen updated
       // https://github.com/jwalton/passport-api-docs?tab=readme-ov-file
