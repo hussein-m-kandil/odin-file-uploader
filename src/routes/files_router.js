@@ -3,28 +3,47 @@ const filesController = require('../controllers/files-controller.js');
 
 const router = Router();
 
-const CREATE_DIR_ENDPOINT = '/create';
-const UPLOAD_FILE_ENDPOINT = '/upload';
+const CRUD_ENDPOINTS = {
+  CREATE: '/create',
+  UPLOAD: '/upload',
+  DELETE: '/delete',
+  RENAME: '/rename',
+};
 
-const rebaseUrlsOnParentFile = (req, res, next) => {
-  const endpointRegex = new RegExp(
-    `(${CREATE_DIR_ENDPOINT}|${UPLOAD_FILE_ENDPOINT})$`
-  );
-  const parentUrl = req.originalUrl.replace(endpointRegex, '');
-  res.locals.createDirUrl = `${parentUrl}${CREATE_DIR_ENDPOINT}`;
-  res.locals.uploadFileUrl = `${parentUrl}${UPLOAD_FILE_ENDPOINT}`;
+const injectBaseUrl = (req, res, next) => {
+  res.locals.baseUrl = req.baseUrl;
   next();
 };
 
-router.use(rebaseUrlsOnParentFile);
+const injectCreateAndUploadUrls = (req, res, next) => {
+  const currentEndpoint = `/${req.originalUrl.split('/').at(-1)}`;
+  if (!Object.values(CRUD_ENDPOINTS).includes(currentEndpoint)) {
+    res.locals.createUrl = `${req.originalUrl}${CRUD_ENDPOINTS.CREATE}`;
+    res.locals.uploadUrl = `${req.originalUrl}${CRUD_ENDPOINTS.UPLOAD}`;
+  }
+  next();
+};
+
+router.use(injectBaseUrl);
+router.use(injectCreateAndUploadUrls);
 
 router.get('/', filesController.getRootFiles);
 
 router
-  .route(`(/:id)?${CREATE_DIR_ENDPOINT}`)
-  .get(filesController.getCreateDir)
-  .post(filesController.postCreateDir);
+  .route(`(/:id)?${CRUD_ENDPOINTS.CREATE}`)
+  .get(filesController.getCreate)
+  .post(filesController.postCreate);
+
+router
+  .route(`(/:id)?${CRUD_ENDPOINTS.RENAME}`)
+  .get(filesController.getRename)
+  .post(filesController.postRename);
+
+router
+  .route(`(/:id)?${CRUD_ENDPOINTS.DELETE}`)
+  .get(filesController.getDelete)
+  .post(filesController.postDelete);
 
 router.get('/:id', filesController.getFile);
 
-module.exports = { CREATE_DIR_ENDPOINT, UPLOAD_FILE_ENDPOINT, router };
+module.exports = router;

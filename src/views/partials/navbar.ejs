@@ -38,24 +38,24 @@
             <%= user.username %>
           </a>
         </li>
-        <% if (locals.createDirUrl) { %>
+        <% if (locals.createUrl) { %>
         <li class="nav-item fst-italic">
           <a
-            class="nav-link<%- url === createDirUrl ? ' active' : '' %>"
+            class="nav-link<%- url === createUrl ? ' active' : '' %>"
             aria-current="page"
-            href="<%= createDirUrl %>"
+            href="<%= createUrl %>"
           >
             Create Folder
           </a>
         </li>
         <% } %>
         <!-- prettier-ignore -->
-        <% if (locals.uploadFileUrl) { %>
+        <% if (locals.uploadUrl) { %>
         <li class="nav-item fst-italic">
           <a
-            class="nav-link<%- url === uploadFileUrl ? ' active' : '' %>"
+            class="nav-link<%- url === uploadUrl ? ' active' : '' %>"
             aria-current="page"
-            href="<%= uploadFileUrl %>"
+            href="<%= uploadUrl %>"
           >
             Upload File
           </a>

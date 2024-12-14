@@ -9,9 +9,12 @@ const MAX_LEN = 100;
 const MIN_LEN = 1;
 const FK_VIOLATION_CODE = 'P2003';
 const UNIQUE_VIOLATION_CODE = 'P2002';
+const FILE_NOT_FOUND_ERR_MSG = 'File Not Found!';
 const PARENT_NOT_FOUND_ERR_MSG = 'Parent folder not found!';
-const CREATE_ERR_MSG = "Couldn't create a folder! Try again later.";
+const SERVER_ERR_MSG = 'Oops, something wrong! Try again later.';
 const NAME_EXISTS_ERR_MSG = 'This name is already exists in the same folder!';
+
+const generateRenameTitle = (fileName) => `Rename ${fileName}`;
 
 const generateFormValidators = () => {
   const validators = [
@@ -31,7 +34,7 @@ const generateFormValidators = () => {
   return validators;
 };
 
-const fileIdValidators = [
+const optionalFileIdValidators = [
   param('id').optional().isUUID(),
   (req, res, next) => {
     if (validationResult(req).isEmpty()) return next();
@@ -39,12 +42,95 @@ const fileIdValidators = [
   },
 ];
 
+/**
+ * Return a File object or response with 404 NOT FOUND
+ *
+ * @param {Express.Request} req - Express request object
+ * @param {Express.Response} res - Express response object
+ * @param {function} next - Express next-middle caller
+ * @param {boolean} parentIncluded - Include the file's parent (`false` by default)
+ * @param {boolean} childrenIncluded - Include the file's children (`false` by default)
+ * @param {boolean} ownerIncluded - Include the file's owner (`false` by default)
+ *
+ * @returns {Prisma.$FilePayload}
+ */
+const getFileOrThrowError = async (
+  req,
+  parentIncluded = false,
+  childrenIncluded = false,
+  ownerIncluded = false
+) => {
+  try {
+    const file = await prismaClient.file.findUnique({
+      where: { id: req.params.id, ownerId: req.user.id },
+      include: {
+        parent: parentIncluded,
+        children: childrenIncluded && { orderBy: { name: 'asc' } },
+        owner: ownerIncluded,
+      },
+    });
+    if (file) return file;
+    throw new AppGenericError(FILE_NOT_FOUND_ERR_MSG, 404);
+  } catch (e) {
+    console.error(e);
+    throw new AppGenericError(SERVER_ERR_MSG, 500);
+  }
+};
+
+/**
+ * Throw an unique constraint violation error if the given name exists
+ * in the root level of the file system (i.e. parent directory is NULL),
+ * because the unique constraint on the fields: (`file_name`, `parent_id`)'
+ * won't sound if the parent is NULL which is always unique (i.d. NULL not equal NULL)!
+ *
+ * @param {string} name - File name
+ * @param {string} ownerId - UUID of the owner
+ *
+ * @returns {void}
+ */
+const throwErrorIfFileNameExistInRoot = async (name, ownerId) => {
+  const file = await prismaClient.file.findFirst({
+    where: { name, ownerId, parentId: null },
+  });
+  if (file) {
+    throw new Prisma.PrismaClientKnownRequestError(
+      '\n\tUnique constraint failed on the fields: (`file_name`,`parent_id`)',
+      {
+        code: UNIQUE_VIOLATION_CODE,
+        clientVersion: Prisma.prismaVersion.client,
+        meta: { modelName: 'File', target: ['file_name', 'parent_id'] },
+      }
+    );
+  }
+};
+
+const handleAppErrAndServerErr = (err, req, res, next) => {
+  console.error(err);
+  if (err instanceof AppGenericError) next(err);
+  else next(new AppGenericError(SERVER_ERR_MSG, 500));
+};
+
+const handleCreateOrUpdateError = (err, req, res, next) => {
+  console.error(err);
+  if (err.code === FK_VIOLATION_CODE) {
+    return next(new AppGenericError(PARENT_NOT_FOUND_ERR_MSG, 404));
+  } else if (err.code === UNIQUE_VIOLATION_CODE) {
+    return res.status(409).render(FORM_VIEW, { error: NAME_EXISTS_ERR_MSG });
+  }
+  return res.status(500).render(FORM_VIEW, { error: SERVER_ERR_MSG });
+};
+
+const redirectAfterCRUD = (req, res, parentId) => {
+  return res.redirect(parentId ? `${req.baseUrl}/${parentId}` : req.baseUrl);
+};
+
 module.exports = {
   getRootFiles: [
     async (req, res, next) => {
       try {
         res.locals.files = await prismaClient.file.findMany({
           where: { parentId: null, ownerId: req.user.id },
+          orderBy: { name: 'asc' },
         });
         next();
       } catch (e) {
@@ -60,17 +146,11 @@ module.exports = {
   ],
 
   getFile: [
-    ...fileIdValidators,
+    ...optionalFileIdValidators,
     async (req, res, next) => {
       try {
         const ownerId = req.user.id;
-        const file = await prismaClient.file.findUnique({
-          where: { id: req.params.id, ownerId },
-          include: { children: true, parent: true },
-        });
-        if (!file) {
-          return next(new AppGenericError('File Not Found', 404));
-        }
+        const file = await getFileOrThrowError(req, true, true, true);
         // TODO: Use recursive query instead!
         // ** START TEMP SOLUTION **
         const parent = file.parent;
@@ -91,41 +171,37 @@ module.exports = {
           title: file.name,
           files: file.children,
         });
-      } catch (e) {
-        console.error(e);
-        next(
-          new AppGenericError("Couldn't get any files! Try again later!", 500)
-        );
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
       }
     },
   ],
 
-  getCreateDir: [
-    ...fileIdValidators,
+  getCreate: [
+    ...optionalFileIdValidators,
     async (req, res, next) => {
       res.locals.title = CREATE_TITLE;
-      const ownerId = req.user.id;
       const parentId = req.params.id;
       if (parentId) {
         try {
-          const parent = await prismaClient.file.findUnique({
-            where: { id: parentId, ownerId },
-          });
-          if (!parent) {
-            return next(new AppGenericError(PARENT_NOT_FOUND_ERR_MSG, 404));
-          }
-          return res.render(FORM_VIEW, { parent });
-        } catch (e) {
-          console.error(e);
-          return next(new AppGenericError(CREATE_ERR_MSG, 500));
+          await getFileOrThrowError(req);
+          return res.render(FORM_VIEW, { parentId });
+        } catch (err) {
+          console.error(err);
+          if (err instanceof AppGenericError) {
+            if (err.statusCode >= 400 && err.statusCode < 500) {
+              err.message = PARENT_NOT_FOUND_ERR_MSG;
+            }
+            next(err);
+          } else next(new AppGenericError(SERVER_ERR_MSG, 500));
         }
       }
       res.render(FORM_VIEW);
     },
   ],
 
-  postCreateDir: [
-    ...fileIdValidators,
+  postCreate: [
+    ...optionalFileIdValidators,
     (req, res, next) => {
       res.locals.title = CREATE_TITLE;
       res.locals.formData = req.body;
@@ -137,39 +213,94 @@ module.exports = {
         const { name } = req.body;
         const ownerId = req.user.id;
         const parentId = req.params.id;
-        if (!parentId) {
-          /**
-           * Assure that the given name does not exist within the NULL parent
-           * because the unique constraint on the fields: (`file_name`, `parent_id`)'
-           * won't sound if the parent is NULL which is always unique (i.d. NULL not equal NULL)!
-           */
-          const file = await prismaClient.file.findFirst({
-            where: { name, ownerId, parentId: null },
-          });
-          if (file) {
-            throw new Prisma.PrismaClientKnownRequestError(
-              '\n\tUnique constraint failed on the fields: (`file_name`,`parent_id`)',
-              {
-                code: UNIQUE_VIOLATION_CODE,
-                clientVersion: Prisma.prismaVersion.client,
-                meta: { modelName: 'File', target: ['file_name', 'parent_id'] },
-              }
-            );
-          }
-        }
+        if (parentId) await getFileOrThrowError(req);
+        else await throwErrorIfFileNameExistInRoot(name, ownerId);
         await prismaClient.file.create({
           data: { typeDir: true, ownerId, parentId, name },
         });
-        res.redirect(parentId ? `${req.baseUrl}/${parentId}` : req.baseUrl);
-      } catch (e) {
-        console.error(e);
-        if (e.code === FK_VIOLATION_CODE) {
-          next(new AppGenericError(PARENT_NOT_FOUND_ERR_MSG, 404));
-        } else if (e.code === UNIQUE_VIOLATION_CODE) {
-          res.status(409).render(FORM_VIEW, { error: NAME_EXISTS_ERR_MSG });
-        } else {
-          res.status(500).render(FORM_VIEW, { error: CREATE_ERR_MSG });
-        }
+        redirectAfterCRUD(req, res, parentId);
+      } catch (err) {
+        if (err instanceof AppGenericError) {
+          console.error(err);
+          if (err.statusCode >= 400 && err.statusCode < 500) {
+            err.message = PARENT_NOT_FOUND_ERR_MSG;
+          }
+          next(err);
+        } else handleCreateOrUpdateError(err, req, res, next);
+      }
+    },
+  ],
+
+  getRename: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { name, parentId } = await getFileOrThrowError(req);
+        res.render(FORM_VIEW, {
+          title: generateRenameTitle(name),
+          formData: { name },
+          parentId,
+        });
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+  ],
+
+  postRename: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { name, parentId } = await getFileOrThrowError(req);
+        res.locals.title = generateRenameTitle(name);
+        res.locals.formData = req.body;
+        res.locals.parentId = parentId;
+        next();
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+    ...generateFormValidators(),
+    async (req, res, next) => {
+      try {
+        const ownerId = req.user.id;
+        const { id } = req.params;
+        const { name } = req.body;
+        const { parentId } = res.locals;
+        if (!parentId) await throwErrorIfFileNameExistInRoot(name, ownerId);
+        await prismaClient.file.update({ where: { id }, data: { name } });
+        redirectAfterCRUD(req, res, parentId);
+      } catch (err) {
+        handleCreateOrUpdateError(err, req, res, next);
+      }
+    },
+  ],
+
+  getDelete: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { name, parentId } = await getFileOrThrowError(req);
+        res.render(FORM_VIEW, {
+          title: `Delete ${name}`,
+          parentId,
+          name,
+        });
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+  ],
+
+  postDelete: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { id, parentId } = await getFileOrThrowError(req);
+        await prismaClient.file.delete({ where: { id } });
+        redirectAfterCRUD(req, res, parentId);
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
       }
     },
   ],

@@ -5,24 +5,14 @@
   </head>
   <body>
     <%- include('partials/navbar') %>
-    <div class="container mt-4">
+    <div class="container mt-4 text-center">
       <header>
-        <p>
-          <a
-            class="link-offset-2 link-underline link-underline-opacity-50"
-            href="<%= url.split('/').slice(0, -1).join('/') %>"
-          >
-            &lt;&lt; Back
-            <!-- prettier-ignore -->
-            <% if (locals.parent) { %>
-            to <span class="fst-italic"><%= parent.name %></span>
-            <% } %>
-          </a>
-        </p>
         <%- include('partials/alert') %>
         <h2 class="mb-4 fw-bold"><%= title %></h2>
       </header>
+      <% const slug = url.split('/').at(-1).toLowerCase() %>
       <form method="post">
+        <% if (slug !== 'delete') { %>
         <div class="form-floating mb-3">
           <% const nameErr = locals.validationErrors?.name %>
           <input
@@ -40,11 +30,20 @@
           <div class="invalid-feedback"><%= nameErr.msg %></div>
           <% } %>
         </div>
-        <div class="text-end">
-          <button type="submit" class="btn btn-outline-primary btn-lg">
-            <%= title %>
-          </button>
-        </div>
+        <% } %>
+        <a
+          role="button"
+          href="<%= parentId ? `${baseUrl}/${parentId}` : baseUrl %>"
+          class="btn btn-lg btn-outline-secondary me-1"
+        >
+          Cancel
+        </a>
+        <button
+          type="submit"
+          class="btn btn-lg btn-outline-<%= slug === 'delete' ? 'danger' : 'primary' %> ms-1"
+        >
+          <%= (slug[0].toUpperCase() + slug.slice(1)) %>
+        </button>
       </form>
     </div>
   </body>

@@ -3,10 +3,7 @@ const express = require('express');
 const authenticate = require('./src/auth/authenticate.js');
 const middlewares = require('./src/middlewares/middlewares.js');
 const userRouter = require('./src/routes/user-router.js');
-const {
-  router: filesRouter,
-  ...files
-} = require('./src/routes/files_router.js');
+const filesRouter = require('./src/routes/files_router.js');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const VIEWS_DIR = path.join(__dirname, 'src/views');
@@ -29,12 +26,6 @@ app.use(middlewares.injectErrorFlashIntoResLocals);
 const FILES_ENDPOINT = '/files';
 const USER_ENDPOINT = '/user';
 
-const injectCreateAndUploadUrls = (req, res, next) => {
-  res.locals.createDirUrl = `${FILES_ENDPOINT}${files.CREATE_DIR_ENDPOINT}`;
-  res.locals.uploadFileUrl = `${FILES_ENDPOINT}${files.UPLOAD_FILE_ENDPOINT}`;
-  next();
-};
-
 const verifyUserAuthentication = (req, res, next) => {
   if (req.isAuthenticated()) return next();
   res.redirect(USER_ENDPOINT);
@@ -44,7 +35,6 @@ app.all('/', (req, res) => res.redirect(FILES_ENDPOINT));
 
 app.use(USER_ENDPOINT, userRouter);
 app.use(verifyUserAuthentication);
-app.use(injectCreateAndUploadUrls);
 app.use(FILES_ENDPOINT, filesRouter);
 app.use(middlewares.handleAppErrors);
 
