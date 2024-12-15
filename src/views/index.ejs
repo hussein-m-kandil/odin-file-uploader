@@ -15,15 +15,11 @@
           <li class="breadcrumb-item" aria-current="page">
             <a href="/files">MyFiles</a>
           </li>
-          <% if (Array.isArray(locals.parents) && parents.length > 0) { %>
-          <!-- prettier-ignore -->
-          <% for (let i = parents.length - 1; i > -1; i--) { %>
+          <% locals.parents?.forEach((p) => { %>
           <li class="breadcrumb-item" aria-current="page">
-            <a href="/files/<%= parents[i].id %>"><%= parents[i].name %></a>
+            <a href="/files/<%= p.id %>"><%= p.name %></a>
           </li>
-          <% } %>
-          <!-- prettier-ignore -->
-          <% } %>
+          <% }) %>
           <li class="breadcrumb-item active" aria-current="page">
             <%= file.name %>
           </li>

@@ -48,16 +48,16 @@ const optionalFileIdValidators = [
  * @param {Express.Request} req - Express request object
  * @param {Express.Response} res - Express response object
  * @param {function} next - Express next-middle caller
- * @param {boolean} parentIncluded - Include the file's parent (`false` by default)
  * @param {boolean} childrenIncluded - Include the file's children (`false` by default)
+ * @param {boolean} parentIncluded - Include the file's parent (`false` by default)
  * @param {boolean} ownerIncluded - Include the file's owner (`false` by default)
  *
  * @returns {Prisma.$FilePayload}
  */
 const getFileOrThrowError = async (
   req,
-  parentIncluded = false,
   childrenIncluded = false,
+  parentIncluded = false,
   ownerIncluded = false
 ) => {
   try {
@@ -149,23 +149,29 @@ module.exports = {
     ...optionalFileIdValidators,
     async (req, res, next) => {
       try {
-        const ownerId = req.user.id;
-        const file = await getFileOrThrowError(req, true, true, true);
-        // TODO: Use recursive query instead!
-        // ** START TEMP SOLUTION **
-        const parent = file.parent;
-        if (parent) {
-          res.locals.parents = [parent];
-          let grandParentId = parent.parentId;
-          while (grandParentId) {
-            const grandParent = await prismaClient.file.findUnique({
-              where: { id: grandParentId, ownerId },
-            });
-            res.locals.parents.push(grandParent);
-            grandParentId = grandParent.parentId;
-          }
+        // Get the file with its children or send 404 error
+        const file = await getFileOrThrowError(req, true);
+        if (file.parentId) {
+          // Get the full parent chain if the parent's id is not `NULL`
+          res.locals.parents = await prismaClient.$queryRaw`
+            WITH RECURSIVE parents AS (
+              SELECT files.*, 0 AS i
+                FROM files
+               WHERE file_id  = ${file.parentId}::UUID
+                 AND owner_id = ${req.user.id}::INTEGER
+               UNION
+              SELECT files.*, i + 1
+                FROM files, parents
+               WHERE files.file_id = parents.parent_id
+            )
+            SELECT parent_id parentId, owner_id ownerId,
+                   is_public isPublic, is_dir isDir,
+                   file_name name, file_id id
+              FROM parents
+          ORDER BY i
+              DESC
+          `;
         }
-        // ** END TEMP SOLUTION **
         return res.render('index', {
           file,
           title: file.name,
@@ -216,7 +222,7 @@ module.exports = {
         if (parentId) await getFileOrThrowError(req);
         else await throwErrorIfFileNameExistInRoot(name, ownerId);
         await prismaClient.file.create({
-          data: { typeDir: true, ownerId, parentId, name },
+          data: { isDir: true, ownerId, parentId, name },
         });
         redirectAfterCRUD(req, res, parentId);
       } catch (err) {
