@@ -3,7 +3,7 @@ const filesController = require('../controllers/files-controller.js');
 
 const router = Router();
 
-const CRUD_ENDPOINTS = {
+const ENDPOINTS = {
   CREATE: '/create',
   UPLOAD: '/upload',
   DELETE: '/delete',
@@ -17,9 +17,9 @@ const injectBaseUrl = (req, res, next) => {
 
 const injectCreateAndUploadUrls = (req, res, next) => {
   const currentEndpoint = `/${req.originalUrl.split('/').at(-1)}`;
-  if (!Object.values(CRUD_ENDPOINTS).includes(currentEndpoint)) {
-    res.locals.createUrl = `${req.originalUrl}${CRUD_ENDPOINTS.CREATE}`;
-    res.locals.uploadUrl = `${req.originalUrl}${CRUD_ENDPOINTS.UPLOAD}`;
+  if (!Object.values(ENDPOINTS).includes(currentEndpoint)) {
+    res.locals.createUrl = `${req.originalUrl}${ENDPOINTS.CREATE}`;
+    res.locals.uploadUrl = `${req.originalUrl}${ENDPOINTS.UPLOAD}`;
   }
   next();
 };
@@ -30,17 +30,22 @@ router.use(injectCreateAndUploadUrls);
 router.get('/', filesController.getRootFiles);
 
 router
-  .route(`(/:id)?${CRUD_ENDPOINTS.CREATE}`)
+  .route(`(/:id)?${ENDPOINTS.UPLOAD}`)
+  .get(filesController.getUpload)
+  .post(filesController.postUpload);
+
+router
+  .route(`(/:id)?${ENDPOINTS.CREATE}`)
   .get(filesController.getCreate)
   .post(filesController.postCreate);
 
 router
-  .route(`(/:id)?${CRUD_ENDPOINTS.RENAME}`)
+  .route(`(/:id)?${ENDPOINTS.RENAME}`)
   .get(filesController.getRename)
   .post(filesController.postRename);
 
 router
-  .route(`(/:id)?${CRUD_ENDPOINTS.DELETE}`)
+  .route(`(/:id)?${ENDPOINTS.DELETE}`)
   .get(filesController.getDelete)
   .post(filesController.postDelete);
 

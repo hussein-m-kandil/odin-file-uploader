@@ -1,9 +1,25 @@
+const path = require('node:path');
 const { body, param, validationResult } = require('express-validator');
 const { Prisma } = require('@prisma/client');
 const { prismaClient } = require('../model/db.js');
 const AppGenericError = require('../errors/app-generic-error.js');
+const multer = require('multer');
 
+let supabase;
+try {
+  supabase = require('@supabase/supabase-js').createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
+} catch (e) {
+  console.error(e);
+}
+
+const MAX_FILE_SIZE_MB = Number(process.env.MAX_FILE_SIZE_MB) || 1;
+const MAX_FILE_SIZE_B = MAX_FILE_SIZE_MB * 1024 * 1024;
 const CREATE_TITLE = 'Create Folder';
+const UPLOAD_TITLE = 'Upload File';
+const STORAGE_ROOT_DIR = 'uploads';
 const FORM_VIEW = 'file-form';
 const MAX_LEN = 100;
 const MIN_LEN = 1;
@@ -16,21 +32,33 @@ const NAME_EXISTS_ERR_MSG = 'This name is already exists in the same folder!';
 
 const generateRenameTitle = (fileName) => `Rename ${fileName}`;
 
-const generateFormValidators = () => {
-  const validators = [
+const generateFormValidators = (uploadForm) => {
+  const PREFIX = uploadForm ? 'File name' : 'Folder name';
+  const validators = [];
+  if (uploadForm) {
+    validators.push((req, res, next) => {
+      // Set name to the file name to be validated if not given a name
+      if (!req.body.name && req.file) req.body.name = req.file.originalname;
+      res.locals.formData = req.body;
+      req.body.file = req.file;
+      next();
+    }, body('file').notEmpty().withMessage('A file to upload is required!'));
+  }
+  validators.push(
     body('name')
+      .optional(uploadForm && { values: 'falsy' })
       .isLength({ min: MIN_LEN })
-      .withMessage(`A name must contain at least ${MIN_LEN} letters`)
+      .withMessage(`${PREFIX} must contain at least ${MIN_LEN} letters`)
       .isLength({ max: MAX_LEN })
-      .withMessage(`A name can contain at most ${MAX_LEN} letters`),
-  ];
-  validators.push((req, res, next) => {
-    const validationErrors = validationResult(req);
-    if (validationErrors.isEmpty()) return next();
-    return res.render(FORM_VIEW, {
-      validationErrors: validationErrors.mapped(),
-    });
-  });
+      .withMessage(`${PREFIX} can contain at most ${MAX_LEN} letters`),
+    (req, res, next) => {
+      const validationErrors = validationResult(req);
+      if (validationErrors.isEmpty()) return next();
+      return res.render(FORM_VIEW, {
+        validationErrors: validationErrors.mapped(),
+      });
+    }
+  );
   return validators;
 };
 
@@ -120,8 +148,62 @@ const handleCreateOrUpdateError = (err, req, res, next) => {
   return res.status(500).render(FORM_VIEW, { error: SERVER_ERR_MSG });
 };
 
-const redirectAfterCRUD = (req, res, parentId) => {
+const renderFormAfterValidatingParentId = async (req, res, next) => {
+  const parentId = req.params.id;
+  if (parentId) {
+    try {
+      await getFileOrThrowError(req);
+    } catch (err) {
+      console.error(err);
+      if (err instanceof AppGenericError) {
+        if (err.statusCode >= 400 && err.statusCode < 500) {
+          err.message = PARENT_NOT_FOUND_ERR_MSG;
+        }
+        return next(err);
+      }
+      return next(new AppGenericError(SERVER_ERR_MSG, 500));
+    }
+  }
+  res.render(FORM_VIEW, { parentId });
+};
+
+const generateFormMiddlewares = (title) => {
+  return [
+    ...optionalFileIdValidators,
+    (req, res, next) => {
+      res.locals.title = title;
+      next();
+    },
+    renderFormAfterValidatingParentId,
+  ];
+};
+
+const redirectToParentOrRoot = (req, res, parentId) => {
   return res.redirect(parentId ? `${req.baseUrl}/${parentId}` : req.baseUrl);
+};
+
+const assertParentExist = async (req, res, next) => {
+  try {
+    if (req.params.id) await getFileOrThrowError(req);
+    next();
+  } catch (err) {
+    if (err instanceof AppGenericError) {
+      console.error(err);
+      if (err.statusCode >= 400 && err.statusCode < 500) {
+        err.message = PARENT_NOT_FOUND_ERR_MSG;
+      }
+    }
+    next(err);
+  }
+};
+
+const assertNameNotExist = async (req, res, next) => {
+  try {
+    await throwErrorIfFileNameExistInRoot(req.body.name, req.user.id);
+    next();
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = {
@@ -183,58 +265,98 @@ module.exports = {
     },
   ],
 
-  getCreate: [
+  getUpload: generateFormMiddlewares(UPLOAD_TITLE),
+
+  postUpload: [
     ...optionalFileIdValidators,
-    async (req, res, next) => {
-      res.locals.title = CREATE_TITLE;
-      const parentId = req.params.id;
-      if (parentId) {
-        try {
-          await getFileOrThrowError(req);
-          return res.render(FORM_VIEW, { parentId });
-        } catch (err) {
-          console.error(err);
-          if (err instanceof AppGenericError) {
-            if (err.statusCode >= 400 && err.statusCode < 500) {
-              err.message = PARENT_NOT_FOUND_ERR_MSG;
-            }
-            next(err);
-          } else next(new AppGenericError(SERVER_ERR_MSG, 500));
-        }
-      }
-      res.render(FORM_VIEW);
+    (req, res, next) => {
+      res.locals.parentId = req.params.id;
+      res.locals.title = UPLOAD_TITLE;
+      next();
     },
+    multer({
+      storage: multer.memoryStorage(),
+      limits: {
+        fileSize: MAX_FILE_SIZE_B,
+        files: 1,
+      },
+    }).single('file'),
+    (err, req, res, next) => {
+      if (err instanceof multer.MulterError) {
+        const msg =
+          err.code === 'LIMIT_FILE_SIZE'
+            ? `Too large file! File size cannot exceed ${MAX_FILE_SIZE_MB}MB`
+            : err.message;
+        return res.render(FORM_VIEW, {
+          validationErrors: { file: { msg } },
+        });
+      }
+      next(err);
+    },
+    ...generateFormValidators(true),
+    assertParentExist,
+    assertNameNotExist,
+    async (req, res, next) => {
+      try {
+        const { file } = req.body;
+        const { encoding, mimetype, size, buffer, originalname } = file;
+        const fileExt = path.extname(originalname);
+        const uniqueSuffix = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
+        const uniqueFileName = `${req.user.id}_${uniqueSuffix}${fileExt}`;
+        const filePath = `${STORAGE_ROOT_DIR}/${req.user.username}/${uniqueFileName}`;
+        const { data, error } = await supabase.storage
+          .from(process.env.SUPABASE_PROJECT_BUCKET)
+          .upload(filePath, buffer, { contentType: mimetype });
+        if (error) throw error;
+        await prismaClient.file.create({
+          data: {
+            isDir: false,
+            name: req.body.name,
+            ownerId: req.user.id,
+            parentId: req.params.id,
+            metadata: {
+              create: { encoding, mimetype, size, path: data.path },
+            },
+          },
+        });
+        redirectToParentOrRoot(req, res, req.params.id);
+      } catch (err) {
+        next(err);
+      }
+    },
+    handleCreateOrUpdateError,
   ],
+
+  getCreate: generateFormMiddlewares(CREATE_TITLE),
 
   postCreate: [
     ...optionalFileIdValidators,
     (req, res, next) => {
+      res.locals.parentId = req.params.id;
       res.locals.title = CREATE_TITLE;
       res.locals.formData = req.body;
       next();
     },
     ...generateFormValidators(),
+    assertParentExist,
+    assertNameNotExist,
     async (req, res, next) => {
       try {
-        const { name } = req.body;
-        const ownerId = req.user.id;
         const parentId = req.params.id;
-        if (parentId) await getFileOrThrowError(req);
-        else await throwErrorIfFileNameExistInRoot(name, ownerId);
         await prismaClient.file.create({
-          data: { isDir: true, ownerId, parentId, name },
+          data: {
+            isDir: true,
+            name: req.body.name,
+            ownerId: req.user.id,
+            parentId,
+          },
         });
-        redirectAfterCRUD(req, res, parentId);
+        redirectToParentOrRoot(req, res, parentId);
       } catch (err) {
-        if (err instanceof AppGenericError) {
-          console.error(err);
-          if (err.statusCode >= 400 && err.statusCode < 500) {
-            err.message = PARENT_NOT_FOUND_ERR_MSG;
-          }
-          next(err);
-        } else handleCreateOrUpdateError(err, req, res, next);
+        next(err);
       }
     },
+    handleCreateOrUpdateError,
   ],
 
   getRename: [
@@ -275,7 +397,7 @@ module.exports = {
         const { parentId } = res.locals;
         if (!parentId) await throwErrorIfFileNameExistInRoot(name, ownerId);
         await prismaClient.file.update({ where: { id }, data: { name } });
-        redirectAfterCRUD(req, res, parentId);
+        redirectToParentOrRoot(req, res, parentId);
       } catch (err) {
         handleCreateOrUpdateError(err, req, res, next);
       }
@@ -304,7 +426,7 @@ module.exports = {
       try {
         const { id, parentId } = await getFileOrThrowError(req);
         await prismaClient.file.delete({ where: { id } });
-        redirectAfterCRUD(req, res, parentId);
+        redirectToParentOrRoot(req, res, parentId);
       } catch (err) {
         handleAppErrAndServerErr(err, req, res, next);
       }

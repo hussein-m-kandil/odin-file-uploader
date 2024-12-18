@@ -11,25 +11,47 @@
         <h2 class="mb-4 fw-bold"><%= title %></h2>
       </header>
       <% const slug = url.split('/').at(-1).toLowerCase() %>
-      <form method="post">
+      <form
+        method="post"
+        enctype="<%= slug === 'upload' ? 'multipart/form-data' : 'application/x-www-form-urlencoded' %>"
+      >
         <% if (slug !== 'delete') { %>
         <div class="form-floating mb-3">
           <% const nameErr = locals.validationErrors?.name %>
+          <!-- prettier-ignore -->
           <input
             type="text"
             class="fw-bold form-control<%- nameErr ? ' is-invalid' : '' %>"
             name="name"
             id="name"
             autocomplete="off"
-            placeholder="Enter Name"
-            value="<%= locals.formData ? formData.name : '' %>"
-            autofocus
+            placeholder="Enter<%= slug === 'upload' ? ' Optional' : '' %> Name"
+            value="<%= locals.formData?.name || '' %>"
+            <%= slug !== 'upload' ? 'autofocus' : '' %>
           />
-          <label for="name">Enter Name</label>
+          <label for="name">
+            Enter<%= slug === 'upload' ? ' Optional' : '' %> Name
+          </label>
           <% if (nameErr) { %>
           <div class="invalid-feedback"><%= nameErr.msg %></div>
           <% } %>
         </div>
+        <% if (slug === 'upload') { %>
+        <div class="mb-3">
+          <% const fileErr = locals.validationErrors?.file %>
+          <!-- prettier-ignore -->
+          <input
+            type="file"
+            name="file"
+            class="fw-bold form-control form-control-lg<%- fileErr ? ' is-invalid' : '' %>"
+            autofocus
+          />
+          <% if (fileErr) { %>
+          <div class="invalid-feedback"><%= fileErr.msg %></div>
+          <% } %>
+        </div>
+        <% } %>
+        <!-- prettier-ignore -->
         <% } %>
         <a
           role="button"
