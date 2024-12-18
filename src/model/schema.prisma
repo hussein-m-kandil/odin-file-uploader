@@ -27,16 +27,29 @@ model User {
 }
 
 model File {
-  id       String  @id @default(dbgenerated("gen_random_uuid()")) @map("file_id") @db.Uuid
-  name     String  @map("file_name") @db.VarChar(100)
-  isDir    Boolean @map("is_dir")
-  isPublic Boolean @default(false) @map("is_public")
-  parentId String? @map("parent_id") @db.Uuid
-  parent   File?   @relation("FileSysTree", fields: [parentId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  children File[]  @relation("FileSysTree")
-  ownerId  Int     @map("owner_id")
-  owner    User    @relation(fields: [ownerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  id       String        @id @default(dbgenerated("gen_random_uuid()")) @map("file_id") @db.Uuid
+  name     String        @map("file_name") @db.VarChar(100)
+  isDir    Boolean       @map("is_dir")
+  isPublic Boolean       @default(false) @map("is_public")
+  parentId String?       @map("parent_id") @db.Uuid
+  parent   File?         @relation("FileSysTree", fields: [parentId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  children File[]        @relation("FileSysTree")
+  ownerId  Int           @map("owner_id")
+  owner    User          @relation(fields: [ownerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  metadata FileMetadata?
 
   @@unique([name, parentId])
   @@map("files")
+}
+
+model FileMetadata {
+  id       Int    @id @default(autoincrement())
+  fileId   String @unique @map("file_id") @db.Uuid
+  file     File   @relation(fields: [fileId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  size     Int
+  encoding String
+  mimetype String
+  path     String @unique
+
+  @@map("files_metadata")
 }
