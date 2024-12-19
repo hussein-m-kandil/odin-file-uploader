@@ -8,20 +8,28 @@
     <div class="container mt-4">
       <%- include('partials/alert') %>
       <nav aria-label="breadcrumb">
+        <% const trunc = (txt) => txt.length > 15 ? `${txt.slice(0, 12)}...` :
+        txt %>
         <ol class="breadcrumb">
           <% if (!locals.file) { %>
           <li class="breadcrumb-item active" aria-current="page">MyFiles</li>
           <% } else { %>
           <li class="breadcrumb-item" aria-current="page">
-            <a class="link-offset-2" href="/files">MyFiles</a>
+            <a class="text-decoration-none" href="/files">MyFiles</a>
           </li>
           <% locals.parents?.forEach((p) => { %>
-          <li class="breadcrumb-item" aria-current="page">
-            <a class="link-offset-2" href="/files/<%= p.id %>"><%= p.name %></a>
+          <li class="breadcrumb-item" aria-current="page" title="<%= p.name %>">
+            <a class="text-decoration-none" href="/files/<%= p.id %>">
+              <%= trunc(p.name) %>
+            </a>
           </li>
           <% }) %>
-          <li class="breadcrumb-item active" aria-current="page">
-            <%= file.name %>
+          <li
+            class="breadcrumb-item active"
+            aria-current="page"
+            title="<%= file.name %>"
+          >
+            <%= trunc(file.name) %>
           </li>
           <% } %>
         </ol>
