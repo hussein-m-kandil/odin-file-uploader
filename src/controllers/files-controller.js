@@ -425,7 +425,16 @@ module.exports = {
     async (req, res, next) => {
       try {
         const { id, parentId } = await getFileOrThrowError(req);
-        await prismaClient.file.delete({ where: { id } });
+        const deletedFile = await prismaClient.file.delete({
+          where: { id },
+          include: { metadata: true },
+        });
+        if (!deletedFile.isDir) {
+          const { error } = await supabase.storage
+            .from(process.env.SUPABASE_PROJECT_BUCKET)
+            .remove([deletedFile.metadata.path]);
+          if (error) throw error;
+        }
         redirectToParentOrRoot(req, res, parentId);
       } catch (err) {
         handleAppErrAndServerErr(err, req, res, next);
