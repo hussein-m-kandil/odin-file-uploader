@@ -76,14 +76,16 @@ const optionalFileIdValidators = [
  * @param {Express.Request} req - Express request object
  * @param {Express.Response} res - Express response object
  * @param {function} next - Express next-middle caller
- * @param {boolean} childrenIncluded - Include the file's children (`false` by default)
- * @param {boolean} parentIncluded - Include the file's parent (`false` by default)
- * @param {boolean} ownerIncluded - Include the file's owner (`false` by default)
+ * @param {boolean} metadataIncluded - Include file metadata (`false` by default)
+ * @param {boolean} childrenIncluded - Include file children (`false` by default)
+ * @param {boolean} parentIncluded - Include file parent (`false` by default)
+ * @param {boolean} ownerIncluded - Include file owner (`false` by default)
  *
  * @returns {Prisma.$FilePayload}
  */
 const getFileOrThrowError = async (
   req,
+  metadataIncluded = false,
   childrenIncluded = false,
   parentIncluded = false,
   ownerIncluded = false
@@ -92,8 +94,9 @@ const getFileOrThrowError = async (
     const file = await prismaClient.file.findUnique({
       where: { id: req.params.id, ownerId: req.user.id },
       include: {
-        parent: parentIncluded,
         children: childrenIncluded && { orderBy: { name: 'asc' } },
+        metadata: metadataIncluded,
+        parent: parentIncluded,
         owner: ownerIncluded,
       },
     });
@@ -206,6 +209,22 @@ const assertNameNotExist = async (req, res, next) => {
   }
 };
 
+const humanizeSizeUpToGBOnly = (size) => {
+  const toFixed = (n) => Number.prototype.toFixed.call(n, 2);
+  const UNITS = [
+    ['GB', 1024 ** 3],
+    ['MB', 1024 ** 2],
+    ['KB', 1024],
+  ];
+  for (let i = 0; i < UNITS.length; i++) {
+    const [unit, value] = UNITS[i];
+    if (size >= value) {
+      return `${toFixed(size / value)} ${unit}`;
+    }
+  }
+  return `${size} bytes`;
+};
+
 module.exports = {
   getRootFiles: [
     async (req, res, next) => {
@@ -232,7 +251,7 @@ module.exports = {
     async (req, res, next) => {
       try {
         // Get the file with its children or send 404 error
-        const file = await getFileOrThrowError(req, true);
+        const file = await getFileOrThrowError(req, true, true);
         if (file.parentId) {
           // Get the full parent chain if the parent's id is not `NULL`
           res.locals.parents = await prismaClient.$queryRaw`
@@ -253,6 +272,9 @@ module.exports = {
           ORDER BY i
               DESC
           `;
+        }
+        if (!file.isDir) {
+          file.metadata.size = humanizeSizeUpToGBOnly(file.metadata.size);
         }
         return res.render('index', {
           file,

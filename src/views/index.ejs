@@ -13,11 +13,11 @@
           <li class="breadcrumb-item active" aria-current="page">MyFiles</li>
           <% } else { %>
           <li class="breadcrumb-item" aria-current="page">
-            <a href="/files">MyFiles</a>
+            <a class="link-offset-2" href="/files">MyFiles</a>
           </li>
           <% locals.parents?.forEach((p) => { %>
           <li class="breadcrumb-item" aria-current="page">
-            <a href="/files/<%= p.id %>"><%= p.name %></a>
+            <a class="link-offset-2" href="/files/<%= p.id %>"><%= p.name %></a>
           </li>
           <% }) %>
           <li class="breadcrumb-item active" aria-current="page">
@@ -31,20 +31,45 @@
       <!-- prettier-ignore -->
       <ul class="list-group">
         <%files.forEach((file) => { %>
-          <li  class="list-group-item d-flex justify-content-between align-items-center">
-            <a href="/files/<%= file.id %>"><%= file.name %></a>
+          <li  class="list-group-item d-flex justify-content-between align-items-center fw-bold">
+            <a href="/files/<%= file.id %>" class="link-offset-2<%= file.isDir ? ' text-decoration-none' : '' %>"><%= file.name %></a>
             <span>
-              <a href="<%= `${baseUrl}/${file.id}/rename` %>" role="button" class="btn btn-sm btn-outline-primary me-1">Update</a>
-              <a href="<%= `${baseUrl}/${file.id}/delete` %>" role="button" class="btn btn-sm btn-outline-danger ms-1">Delete</a>
+              <a href="<%= `${baseUrl}/${file.id}/rename` %>" role="button" class="btn btn-sm btn-outline-primary fw-bold me-1">Rename</a>
+              <a href="<%= `${baseUrl}/${file.id}/delete` %>" role="button" class="btn btn-sm btn-outline-danger fw-bold ms-1">Delete</a>
             </span>
           </li>
         <% }) %>
       </ul>
+      <% } else if (locals.file && !file.isDir) { %>
+      <h2 class="my-4 text-center fw-normal"><%= file.name %></h2>
+      <div class="my-5 lead text-center">
+        <p>
+          <span class="fw-bold">Type</span>:
+          <span><%= file.metadata.mimetype %></span>
+        </p>
+        <p>
+          <span class="fw-bold">Size</span>:
+          <span><%= file.metadata.size %></span>
+        </p>
+      </div>
+      <!-- prettier-ignore -->
+      <p class="d-flex flex-wrap gap-3 justify-content-evenly">
+        <a href="<%= url %>/download" role="button" class="btn btn-outline-success fw-bold">
+          Download
+        </a>
+        <a href="<%= url %>/rename" role="button" class="btn btn-outline-primary fw-bold">
+          Rename
+        </a>
+        <a href="<%= url %>/delete" role="button" class="btn btn-outline-danger fw-bold">
+          Delete
+        </a>
+      </p>
       <% } else { %>
       <p class="text-center text-body-secondary">
         There are no files or folders here! Consider
-        <a href="<%= url %>/create">creating a folder</a> or
-        <a href="<%= url %>/upload">uploading a file</a>
+        <a class="link-offset-2" href="<%= url %>/create">creating a folder</a>
+        or
+        <a class="link-offset-2" href="<%= url %>/upload">uploading a file</a>.
       </p>
       <% } %>
     </div>
