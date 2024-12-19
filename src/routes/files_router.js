@@ -8,6 +8,7 @@ const ENDPOINTS = {
   UPLOAD: '/upload',
   DELETE: '/delete',
   RENAME: '/rename',
+  DOWNLOAD: '/download',
 };
 
 const injectBaseUrl = (req, res, next) => {
@@ -48,6 +49,8 @@ router
   .route(`(/:id)?${ENDPOINTS.DELETE}`)
   .get(filesController.getDelete)
   .post(filesController.postDelete);
+
+router.route(`(/:id)?${ENDPOINTS.DOWNLOAD}`).get(filesController.getDownload);
 
 router.get('/:id', filesController.getFile);
 

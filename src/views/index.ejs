@@ -41,9 +41,12 @@
         <%files.forEach((file) => { %>
           <li  class="list-group-item d-flex justify-content-between align-items-center fw-bold">
             <a href="/files/<%= file.id %>" class="link-offset-2<%= file.isDir ? ' text-decoration-none' : '' %>"><%= file.name %></a>
-            <span>
-              <a href="<%= `${baseUrl}/${file.id}/rename` %>" role="button" class="btn btn-sm btn-outline-primary fw-bold me-1">Rename</a>
-              <a href="<%= `${baseUrl}/${file.id}/delete` %>" role="button" class="btn btn-sm btn-outline-danger fw-bold ms-1">Delete</a>
+            <span class="d-inline-flex flex-column flex-md-row flex-wrap justify-content-end gap-2">
+              <% if (!file.isDir) { %>
+                <a href="<%= `${baseUrl}/${file.id}/download` %>" role="button" class="btn btn-sm btn-outline-success fw-bold" style="font-size: x-small;">Download</a>
+              <% } %>
+              <a href="<%= `${baseUrl}/${file.id}/rename` %>" role="button" class="btn btn-sm btn-outline-primary fw-bold" style="font-size: x-small;">Rename</a>
+              <a href="<%= `${baseUrl}/${file.id}/delete` %>" role="button" class="btn btn-sm btn-outline-danger fw-bold" style="font-size: x-small;">Delete</a>
             </span>
           </li>
         <% }) %>

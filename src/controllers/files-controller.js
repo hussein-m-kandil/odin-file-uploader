@@ -349,6 +349,26 @@ module.exports = {
     handleCreateOrUpdateError,
   ],
 
+  getDownload: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { metadata } = await getFileOrThrowError(req, true);
+        if (!metadata) {
+          throw new AppGenericError('Invalid download link!', 400);
+        }
+        const { data: blob, error } = await supabase.storage
+          .from(process.env.SUPABASE_PROJECT_BUCKET)
+          .download(metadata.path);
+        if (error) throw error;
+        res.set('Content-Type', blob.type);
+        res.send(Buffer.from(await blob.arrayBuffer()));
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+  ],
+
   getCreate: generateFormMiddlewares(CREATE_TITLE),
 
   postCreate: [
