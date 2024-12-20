@@ -353,16 +353,18 @@ module.exports = {
     ...optionalFileIdValidators,
     async (req, res, next) => {
       try {
-        const { metadata } = await getFileOrThrowError(req, true);
+        const { name, metadata } = await getFileOrThrowError(req, true);
         if (!metadata) {
           throw new AppGenericError('Invalid download link!', 400);
         }
-        const { data: blob, error } = await supabase.storage
+        const fileExt = path.extname(name) || path.extname(metadata.path);
+        const extRegex = new RegExp(`${fileExt}$`);
+        const fileName = `${name.replace(extRegex, '')}${fileExt}`;
+        const { data, error } = await supabase.storage
           .from(process.env.SUPABASE_PROJECT_BUCKET)
-          .download(metadata.path);
+          .createSignedUrl(metadata.path, 60, { download: fileName });
         if (error) throw error;
-        res.set('Content-Type', blob.type);
-        res.send(Buffer.from(await blob.arrayBuffer()));
+        res.redirect(data.signedUrl);
       } catch (err) {
         handleAppErrAndServerErr(err, req, res, next);
       }
