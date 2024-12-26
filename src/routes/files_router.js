@@ -4,6 +4,7 @@ const filesController = require('../controllers/files-controller.js');
 const router = Router();
 
 const ENDPOINTS = {
+  SHARE: '/share',
   CREATE: '/create',
   UPLOAD: '/upload',
   DELETE: '/delete',
@@ -29,6 +30,11 @@ router.use(injectBaseUrl);
 router.use(injectCreateAndUploadUrls);
 
 router.get('/', filesController.getRootFiles);
+
+router
+  .route(`(/:id)?${ENDPOINTS.SHARE}`)
+  .get(filesController.getShare)
+  .post(filesController.postShare);
 
 router
   .route(`(/:id)?${ENDPOINTS.UPLOAD}`)

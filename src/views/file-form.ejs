@@ -15,7 +15,52 @@
         method="post"
         enctype="<%= slug === 'upload' ? 'multipart/form-data' : 'application/x-www-form-urlencoded' %>"
       >
-        <% if (slug !== 'delete') { %>
+        <% if (slug === 'share') { %>
+        <div class="mb-3 lead fw-bold">
+          <!-- prettier-ignore -->
+          <% const daysErr = locals.validationErrors?.days %>
+          <script>
+            function handleDaysNumberChange(input) {
+              if (!input.value) input.value = 1;
+              const span = document.getElementById('days-span');
+              if (span) {
+                span.textContent = Math.abs(input.value) === 1 ? 'Day' : 'Days';
+              }
+            }
+          </script>
+          <span>For</span>
+          <input
+            style="
+              width: 4rem;
+              appearance: none;
+              border-radius: 0.5rem;
+              -webkit-appearance: none;
+              border: 1px solid var(--bs-primary-border-subtle);
+              outline-color: var(--bs-primary-border-subtle);
+              accent-color: var(--bs-primary-border-subtle);
+            "
+            class="text-center fw-bold<%= daysErr ? ' is-invalid' : '' %>"
+            type="number"
+            name="days"
+            value="<%= locals.formData?.days || '1' %>"
+            step="1"
+            min="1"
+            onchange="handleDaysNumberChange(this)"
+            autofocus
+          />
+          <span
+            id="days-span"
+            class="d-inline-block text-start"
+            style="min-width: 2.5rem"
+          >
+            <!-- prettier-ignore -->
+            Day<%= locals.formData?.days && (formData.days == 1 ? '' : 's') || '' %>
+          </span>
+          <% if (daysErr) { %>
+          <div class="invalid-feedback fw-normal"><%= daysErr.msg %></div>
+          <% } %>
+        </div>
+        <% } else if (slug !== 'delete') { %>
         <div class="form-floating mb-3">
           <% const nameErr = locals.validationErrors?.name %>
           <!-- prettier-ignore -->

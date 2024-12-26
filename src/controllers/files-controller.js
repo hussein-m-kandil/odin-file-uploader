@@ -17,10 +17,12 @@ try {
 
 const MAX_FILE_SIZE_MB = Number(process.env.MAX_FILE_SIZE_MB) || 1;
 const MAX_FILE_SIZE_B = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_SHARE_DAYS = Number.MAX_SAFE_INTEGER;
 const CREATE_TITLE = 'Create Folder';
 const UPLOAD_TITLE = 'Upload File';
 const STORAGE_ROOT_DIR = 'uploads';
 const FORM_VIEW = 'file-form';
+const MIN_SHARE_DAYS = 1;
 const MAX_LEN = 100;
 const MIN_LEN = 1;
 const FK_VIOLATION_CODE = 'P2003';
@@ -31,6 +33,16 @@ const SERVER_ERR_MSG = 'Oops, something wrong! Try again later.';
 const NAME_EXISTS_ERR_MSG = 'This name is already exists in the same folder!';
 
 const generateRenameTitle = (fileName) => `Rename ${fileName}`;
+
+const generateShareTitle = (fileName) => `Share ${fileName}`;
+
+const validatorMiddleware = (req, res, next) => {
+  const validationErrors = validationResult(req);
+  if (validationErrors.isEmpty()) return next();
+  return res.render(FORM_VIEW, {
+    validationErrors: validationErrors.mapped(),
+  });
+};
 
 const generateFormValidators = (uploadForm) => {
   const PREFIX = uploadForm ? 'File name' : 'Folder name';
@@ -51,13 +63,7 @@ const generateFormValidators = (uploadForm) => {
       .withMessage(`${PREFIX} must contain at least ${MIN_LEN} letters`)
       .isLength({ max: MAX_LEN })
       .withMessage(`${PREFIX} can contain at most ${MAX_LEN} letters`),
-    (req, res, next) => {
-      const validationErrors = validationResult(req);
-      if (validationErrors.isEmpty()) return next();
-      return res.render(FORM_VIEW, {
-        validationErrors: validationErrors.mapped(),
-      });
-    }
+    validatorMiddleware
   );
   return validators;
 };
@@ -181,8 +187,8 @@ const generateFormMiddlewares = (title) => {
   ];
 };
 
-const redirectToParentOrRoot = (req, res, parentId) => {
-  return res.redirect(parentId ? `${req.baseUrl}/${parentId}` : req.baseUrl);
+const redirectToDirIdOrRoot = (req, res, dirId) => {
+  return res.redirect(dirId ? `${req.baseUrl}/${dirId}` : req.baseUrl);
 };
 
 const assertParentExist = async (req, res, next) => {
@@ -223,6 +229,30 @@ const humanizeSizeUpToGBOnly = (size) => {
     }
   }
   return `${size} bytes`;
+};
+
+const executeRecursiveQueryOnFileShareInfo = async (req) => {
+  const expirationDate = new Date();
+  if (req.body.days) {
+    const days = parseInt(req.body.days);
+    expirationDate.setHours(days * 24 + expirationDate.getHours());
+  }
+  return await prismaClient.$executeRaw`
+    WITH RECURSIVE children AS (
+      SELECT files.*
+        FROM files
+       WHERE file_id  = ${req.params.id}::UUID
+         AND owner_id = ${req.user.id}::INTEGER
+       UNION
+      SELECT files.*
+        FROM files, children
+       WHERE files.parent_id = children.file_id
+    )
+    UPDATE files
+       SET (is_shared, share_exp_at) = (true, ${expirationDate}::TIMESTAMP(3))
+      FROM children
+     WHERE files.file_id = children.file_id;
+  `;
 };
 
 module.exports = {
@@ -340,7 +370,7 @@ module.exports = {
             },
           },
         });
-        redirectToParentOrRoot(req, res, req.params.id);
+        redirectToDirIdOrRoot(req, res, req.params.id);
       } catch (err) {
         next(err);
       }
@@ -394,7 +424,7 @@ module.exports = {
             parentId,
           },
         });
-        redirectToParentOrRoot(req, res, parentId);
+        redirectToDirIdOrRoot(req, res, parentId);
       } catch (err) {
         next(err);
       }
@@ -439,8 +469,11 @@ module.exports = {
         const { name } = req.body;
         const { parentId } = res.locals;
         if (!parentId) await throwErrorIfFileNameExistInRoot(name, ownerId);
-        await prismaClient.file.update({ where: { id }, data: { name } });
-        redirectToParentOrRoot(req, res, parentId);
+        await prismaClient.file.update({
+          where: { id, ownerId },
+          data: { name },
+        });
+        redirectToDirIdOrRoot(req, res, parentId);
       } catch (err) {
         handleCreateOrUpdateError(err, req, res, next);
       }
@@ -478,10 +511,62 @@ module.exports = {
             .remove([deletedFile.metadata.path]);
           if (error) throw error;
         }
-        redirectToParentOrRoot(req, res, parentId);
+        redirectToDirIdOrRoot(req, res, parentId);
       } catch (err) {
         handleAppErrAndServerErr(err, req, res, next);
       }
     },
   ],
+
+  getShare: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { name, isDir } = await getFileOrThrowError(req);
+        if (!isDir) {
+          throw new AppGenericError('Folders only can be shared!', 400);
+        }
+        res.render(FORM_VIEW, {
+          title: generateShareTitle(name),
+          parentId: req.params.id,
+        });
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+  ],
+
+  postShare: [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { name, isDir } = await getFileOrThrowError(req);
+        if (!isDir) {
+          throw new AppGenericError('Folders only can be shared!', 400);
+        }
+        res.locals.title = generateShareTitle(name);
+        res.locals.formData = req.body;
+        res.locals.parentId = req.params.id;
+        next();
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+    body('days')
+      .isInt({ min: MIN_SHARE_DAYS })
+      .withMessage(`The number of days cannot be less than ${MIN_SHARE_DAYS}`)
+      .isInt({ max: MAX_SHARE_DAYS })
+      .withMessage(`The number of days cannot be more than ${MAX_SHARE_DAYS}`),
+    validatorMiddleware,
+    async (req, res, next) => {
+      try {
+        await executeRecursiveQueryOnFileShareInfo(req);
+        redirectToDirIdOrRoot(req, res, req.params.id);
+      } catch (err) {
+        handleCreateOrUpdateError(err, req, res, next);
+      }
+    },
+  ],
 };
+
+// TODO: Add 'unshare' route

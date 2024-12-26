@@ -29,19 +29,50 @@
             aria-current="page"
             title="<%= file.name %>"
           >
-            <%= trunc(file.name) %>
+            <%= file.name %>
           </li>
           <% } %>
         </ol>
       </nav>
-      <% if (locals.file) { %>
+      <% if (locals.file && file.isDir) { %>
       <!-- prettier-ignore -->
-      <div class="text-secondary mb-3" style="font-size: x-small;">
-        Created at
-        <%= new Date(file.createdAt).toLocaleString(
-          "hc",
-          { hour12: true, hourCycle: "h12", timeStyle: "short", dateStyle: "medium" }
-        ) %>
+      <div class="text-secondary mb-3 d-flex flex-wrap gap-3 justify-content-between align-items-center" style="font-size: x-small;">
+        <span>
+          Created at
+          <%= new Date(file.createdAt).toLocaleString(
+            "hc",
+            { hour12: true, hourCycle: "h12", timeStyle: "short", dateStyle: "medium" }
+          ) %>
+        </span>
+        <% if (file.isShared) { %>
+          <span class="ms-auto">
+            <a
+              href="<%= `/share/${file.id}` %>"
+              role="button"
+              class="btn btn-sm btn-outline-success fw-bold"
+              style="font-size: x-small"
+            >
+              Share-Link
+            </a>
+            <a
+              href="<%= `${baseUrl}/${file.id}/unshare` %>"
+              role="button"
+              class="btn btn-sm btn-outline-primary fw-bold ms-2"
+              style="font-size: x-small"
+            >
+              Unshare Folder
+            </a>
+          </span>
+        <% } else { %>
+          <a
+            href="<%= `${baseUrl}/${file.id}/share` %>"
+            role="button"
+            class="btn btn-sm btn-outline-primary fw-bold ms-auto"
+            style="font-size: x-small"
+          >
+          Share Folder
+        </a>
+        <% } %>
       </div>
       <% } %>
       <!-- prettier-ignore -->
@@ -59,8 +90,20 @@
               <% } %>
             </a>
             <span class="d-inline-flex flex-column flex-md-row flex-wrap justify-content-end gap-2">
-              <a href="<%= `${baseUrl}/${file.id}/rename` %>" role="button" class="btn btn-sm btn-outline-primary fw-bold" style="font-size: x-small;">Rename</a>
-              <a href="<%= `${baseUrl}/${file.id}/delete` %>" role="button" class="btn btn-sm btn-outline-danger fw-bold" style="font-size: x-small;">Delete</a>
+              <a
+                href="<%= `${baseUrl}/${file.id}/rename` %>"
+                role="button" class="btn btn-sm btn-outline-primary fw-bold"
+                style="font-size: x-small;"
+              >
+                Rename
+              </a>
+              <a
+                href="<%= `${baseUrl}/${file.id}/delete` %>"
+                role="button" class="btn btn-sm btn-outline-danger fw-bold"
+                style="font-size: x-small;"
+              >
+                Delete
+              </a>
             </span>
           </li>
         <% }) %>
