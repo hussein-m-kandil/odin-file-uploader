@@ -266,7 +266,6 @@ module.exports = {
                WHERE files.file_id = parents.parent_id
             )
             SELECT parent_id parentId, owner_id ownerId,
-                   is_public isPublic, is_dir isDir,
                    file_name name, file_id id
               FROM parents
           ORDER BY i
