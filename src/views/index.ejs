@@ -10,7 +10,7 @@
       <nav aria-label="breadcrumb">
         <% const trunc = (txt) => txt.length > 15 ? `${txt.slice(0, 12)}...` :
         txt %>
-        <ol class="breadcrumb">
+        <ol class="breadcrumb mb-1">
           <% if (!locals.file) { %>
           <li class="breadcrumb-item active" aria-current="page">MyFiles</li>
           <% } else { %>
@@ -34,6 +34,16 @@
           <% } %>
         </ol>
       </nav>
+      <% if (locals.file) { %>
+      <!-- prettier-ignore -->
+      <div class="text-secondary mb-3" style="font-size: x-small;">
+        Created at
+        <%= new Date(file.createdAt).toLocaleString(
+          "hc",
+          { hour12: true, hourCycle: "h12", timeStyle: "short", dateStyle: "medium" }
+        ) %>
+      </div>
+      <% } %>
       <!-- prettier-ignore -->
       <% if (Array.isArray(locals.files) && files.length > 0) { %>
       <!-- prettier-ignore -->
@@ -52,15 +62,35 @@
         <% }) %>
       </ul>
       <% } else if (locals.file && !file.isDir) { %>
-      <h2 class="my-4 text-center fw-normal"><%= file.name %></h2>
-      <div class="my-5 lead text-center">
-        <p>
-          <span class="fw-bold">Type</span>:
-          <span><%= file.metadata.mimetype %></span>
+      <h2 class="my-4 text-center"><%= file.name %></h2>
+      <div class="my-5">
+        <p class="d-flex flex-wrap justify-content-between border-bottom">
+          <span class="fw-bold">Type</span>
+          <span class="ms-auto"><%= file.metadata.mimetype %></span>
         </p>
-        <p>
-          <span class="fw-bold">Size</span>:
-          <span><%= file.metadata.size %></span>
+        <p class="d-flex flex-wrap justify-content-between border-bottom">
+          <span class="fw-bold">Size</span>
+          <span class="ms-auto"><%= file.metadata.size %></span>
+        </p>
+        <p class="d-flex flex-wrap justify-content-between border-bottom">
+          <span class="fw-bold">Uploaded</span>
+          <!-- prettier-ignore -->
+          <span class="ms-auto">
+            <%= new Date(file.createdAt).toLocaleString(
+              "hc",
+              { hour12: true, hourCycle: "h12", timeStyle: "short", dateStyle: "medium" }
+            ) %>
+          </span>
+        </p>
+        <p class="d-flex flex-wrap justify-content-between border-bottom">
+          <span class="fw-bold">Last Modified</span>
+          <!-- prettier-ignore -->
+          <span class="ms-auto">
+            <%= new Date(file.updatedAt).toLocaleString(
+              "hc",
+              { hour12: true, hourCycle: "h12", timeStyle: "short", dateStyle: "medium" }
+            ) %>
+          </span>
         </p>
       </div>
       <!-- prettier-ignore -->
