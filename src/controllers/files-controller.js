@@ -80,6 +80,30 @@ const optionalFileIdValidators = [
   },
 ];
 
+const unshareFileWithExpiredShareDate = async (file) => {
+  if (file.isShared && file.shareExpAt <= new Date()) {
+    await prismaClient.$executeRaw`
+      WITH RECURSIVE children AS (
+        SELECT files.*
+          FROM files
+         WHERE file_id  = ${file.id}::UUID
+         UNION
+        SELECT files.*
+          FROM files, children
+         WHERE files.parent_id = children.file_id
+           AND files.share_exp_at <= now()
+      )
+      UPDATE files
+         SET (is_shared, share_exp_at) = (false, now())
+        FROM children
+       WHERE files.file_id = children.file_id;
+  `;
+    file.isShared = false;
+    return true;
+  }
+  return false;
+};
+
 /**
  * Return a File object or response with 404 NOT FOUND
  *
@@ -110,7 +134,10 @@ const getFileOrThrowError = async (
         owner: ownerIncluded,
       },
     });
-    if (file) return file;
+    if (file) {
+      await unshareFileWithExpiredShareDate(file);
+      return file;
+    }
     throw new AppGenericError(FILE_NOT_FOUND_ERR_MSG, 404);
   } catch (e) {
     console.error(e);
@@ -306,10 +333,14 @@ module.exports = {
   getRootFiles: [
     async (req, res, next) => {
       try {
-        res.locals.files = await prismaClient.file.findMany({
+        const files = await prismaClient.file.findMany({
           where: { parentId: null, ownerId: req.user.id },
           orderBy: { name: 'asc' },
         });
+        files.forEach(async (file) => {
+          await unshareFileWithExpiredShareDate(file);
+        });
+        res.locals.files = files;
         next();
       } catch (e) {
         console.error(e);
