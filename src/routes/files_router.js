@@ -9,6 +9,7 @@ const ENDPOINTS = {
   UPLOAD: '/upload',
   DELETE: '/delete',
   RENAME: '/rename',
+  UNSHARE: '/unshare',
   DOWNLOAD: '/download',
 };
 
@@ -33,7 +34,7 @@ router.get('/', filesController.getRootFiles);
 
 router
   .route(`(/:id)?${ENDPOINTS.SHARE}`)
-  .get(filesController.getShare)
+  .get(filesController.getShareOrUnshare)
   .post(filesController.postShare);
 
 router
@@ -55,6 +56,11 @@ router
   .route(`(/:id)?${ENDPOINTS.DELETE}`)
   .get(filesController.getDelete)
   .post(filesController.postDelete);
+
+router
+  .route(`(/:id)?${ENDPOINTS.UNSHARE}`)
+  .get(filesController.getShareOrUnshare)
+  .post(filesController.postUnshare);
 
 router.route(`(/:id)?${ENDPOINTS.DOWNLOAD}`).get(filesController.getDownload);
 

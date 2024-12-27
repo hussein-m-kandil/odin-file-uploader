@@ -60,7 +60,7 @@
           <div class="invalid-feedback fw-normal"><%= daysErr.msg %></div>
           <% } %>
         </div>
-        <% } else if (slug !== 'delete') { %>
+        <% } else if (slug !== 'delete' && slug !== 'unshare') { %>
         <div class="form-floating mb-3">
           <% const nameErr = locals.validationErrors?.name %>
           <!-- prettier-ignore -->

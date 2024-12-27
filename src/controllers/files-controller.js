@@ -29,12 +29,16 @@ const FK_VIOLATION_CODE = 'P2003';
 const UNIQUE_VIOLATION_CODE = 'P2002';
 const FILE_NOT_FOUND_ERR_MSG = 'File Not Found!';
 const PARENT_NOT_FOUND_ERR_MSG = 'Parent folder not found!';
+const FILE_SHARE_ERR_MSG = 'Folders only can be un/shared!';
 const SERVER_ERR_MSG = 'Oops, something wrong! Try again later.';
 const NAME_EXISTS_ERR_MSG = 'This name is already exists in the same folder!';
 
 const generateRenameTitle = (fileName) => `Rename ${fileName}`;
 
-const generateShareTitle = (fileName) => `Share ${fileName}`;
+const generateTitleBasedOnSlug = (req, fileName) => {
+  const slug = req.originalUrl.split('/').at(-1);
+  return `${slug[0].toUpperCase()}${slug.slice(1)} ${fileName}`;
+};
 
 const validatorMiddleware = (req, res, next) => {
   const validationErrors = validationResult(req);
@@ -233,9 +237,11 @@ const humanizeSizeUpToGBOnly = (size) => {
 
 const executeRecursiveQueryOnFileShareInfo = async (req) => {
   const expirationDate = new Date();
+  let isShared = false;
   if (req.body.days) {
     const days = parseInt(req.body.days);
     expirationDate.setHours(days * 24 + expirationDate.getHours());
+    isShared = true;
   }
   return await prismaClient.$executeRaw`
     WITH RECURSIVE children AS (
@@ -249,10 +255,51 @@ const executeRecursiveQueryOnFileShareInfo = async (req) => {
        WHERE files.parent_id = children.file_id
     )
     UPDATE files
-       SET (is_shared, share_exp_at) = (true, ${expirationDate}::TIMESTAMP(3))
+       SET (is_shared, share_exp_at) = (${isShared}, ${expirationDate}::TIMESTAMP(3))
       FROM children
      WHERE files.file_id = children.file_id;
   `;
+};
+
+const generatePostShareOrUnshareMiddlewares = (forShare) => {
+  const middlewares = [
+    ...optionalFileIdValidators,
+    async (req, res, next) => {
+      try {
+        const { name, isDir } = await getFileOrThrowError(req);
+        if (!isDir) {
+          throw new AppGenericError(FILE_SHARE_ERR_MSG, 400);
+        }
+        res.locals.title = generateTitleBasedOnSlug(req, name);
+        res.locals.formData = req.body;
+        res.locals.parentId = req.params.id;
+        next();
+      } catch (err) {
+        handleAppErrAndServerErr(err, req, res, next);
+      }
+    },
+  ];
+  if (forShare) {
+    middlewares.push(
+      body('days')
+        .isInt({ min: MIN_SHARE_DAYS })
+        .withMessage(`The number of days cannot be less than ${MIN_SHARE_DAYS}`)
+        .isInt({ max: MAX_SHARE_DAYS })
+        .withMessage(
+          `The number of days cannot be more than ${MAX_SHARE_DAYS}`
+        ),
+      validatorMiddleware
+    );
+  }
+  middlewares.push(async (req, res, next) => {
+    try {
+      await executeRecursiveQueryOnFileShareInfo(req, forShare);
+      redirectToDirIdOrRoot(req, res, req.params.id);
+    } catch (err) {
+      handleCreateOrUpdateError(err, req, res, next);
+    }
+  });
+  return middlewares;
 };
 
 module.exports = {
@@ -518,16 +565,16 @@ module.exports = {
     },
   ],
 
-  getShare: [
+  getShareOrUnshare: [
     ...optionalFileIdValidators,
     async (req, res, next) => {
       try {
         const { name, isDir } = await getFileOrThrowError(req);
         if (!isDir) {
-          throw new AppGenericError('Folders only can be shared!', 400);
+          throw new AppGenericError(FILE_SHARE_ERR_MSG, 400);
         }
         res.render(FORM_VIEW, {
-          title: generateShareTitle(name),
+          title: generateTitleBasedOnSlug(req, name),
           parentId: req.params.id,
         });
       } catch (err) {
@@ -536,37 +583,7 @@ module.exports = {
     },
   ],
 
-  postShare: [
-    ...optionalFileIdValidators,
-    async (req, res, next) => {
-      try {
-        const { name, isDir } = await getFileOrThrowError(req);
-        if (!isDir) {
-          throw new AppGenericError('Folders only can be shared!', 400);
-        }
-        res.locals.title = generateShareTitle(name);
-        res.locals.formData = req.body;
-        res.locals.parentId = req.params.id;
-        next();
-      } catch (err) {
-        handleAppErrAndServerErr(err, req, res, next);
-      }
-    },
-    body('days')
-      .isInt({ min: MIN_SHARE_DAYS })
-      .withMessage(`The number of days cannot be less than ${MIN_SHARE_DAYS}`)
-      .isInt({ max: MAX_SHARE_DAYS })
-      .withMessage(`The number of days cannot be more than ${MAX_SHARE_DAYS}`),
-    validatorMiddleware,
-    async (req, res, next) => {
-      try {
-        await executeRecursiveQueryOnFileShareInfo(req);
-        redirectToDirIdOrRoot(req, res, req.params.id);
-      } catch (err) {
-        handleCreateOrUpdateError(err, req, res, next);
-      }
-    },
-  ],
-};
+  postShare: generatePostShareOrUnshareMiddlewares(true),
 
-// TODO: Add 'unshare' route
+  postUnshare: generatePostShareOrUnshareMiddlewares(),
+};
