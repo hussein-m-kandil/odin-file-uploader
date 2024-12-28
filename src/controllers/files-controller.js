@@ -461,11 +461,7 @@ module.exports = {
         const uniqueSuffix = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
         const uniqueFileName = `${req.user.id}_${uniqueSuffix}${fileExt}`;
         const filePath = `${STORAGE_ROOT_DIR}/${req.user.username}/${uniqueFileName}`;
-        const { data, error } = await supabase.storage
-          .from(process.env.SUPABASE_PROJECT_BUCKET)
-          .upload(filePath, buffer, { contentType: mimetype });
-        if (error) throw error;
-        await prismaClient.file.create({
+        const savedFile = await prismaClient.file.create({
           data: {
             isDir: false,
             name: req.body.name,
@@ -474,11 +470,25 @@ module.exports = {
             isShared: res.locals._parent?.isShared || false,
             shareExpAt: res.locals._parent?.shareExpAt || new Date(),
             metadata: {
-              create: { encoding, mimetype, size, path: data.path },
+              create: { encoding, mimetype, size, path: filePath },
             },
           },
         });
-        redirectToDirIdOrRoot(req, res, req.params.id);
+        if (savedFile) {
+          const { data, error } = await supabase.storage
+            .from(process.env.SUPABASE_PROJECT_BUCKET)
+            .upload(filePath, buffer, { contentType: mimetype });
+          if (error || !data?.path) {
+            await prismaClient.file.delete({ where: { id: savedFile.id } });
+            throw error || new AppGenericError(SERVER_ERR_MSG, 500);
+          }
+          await prismaClient.fileMetadata.update({
+            where: { fileId: savedFile.id },
+            data: { path: data.path },
+          });
+          return redirectToDirIdOrRoot(req, res, req.params.id);
+        }
+        throw new AppGenericError(SERVER_ERR_MSG, 500);
       } catch (err) {
         next(err);
       }
