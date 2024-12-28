@@ -3,6 +3,7 @@ const express = require('express');
 const authenticate = require('./src/auth/authenticate.js');
 const middlewares = require('./src/middlewares/middlewares.js');
 const userRouter = require('./src/routes/user-router.js');
+const shareRouter = require('./src/routes/share_router.js');
 const filesRouter = require('./src/routes/files_router.js');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -23,6 +24,7 @@ app.use(middlewares.injectUserIntoLocals);
 app.use(middlewares.initFlashInSession);
 app.use(middlewares.injectErrorFlashIntoResLocals);
 
+const SHARE_ENDPOINT = '/share';
 const FILES_ENDPOINT = '/files';
 const USER_ENDPOINT = '/user';
 
@@ -33,6 +35,7 @@ const verifyUserAuthentication = (req, res, next) => {
 
 app.all('/', (req, res) => res.redirect(FILES_ENDPOINT));
 
+app.use(SHARE_ENDPOINT, shareRouter);
 app.use(USER_ENDPOINT, userRouter);
 app.use(verifyUserAuthentication);
 app.use(FILES_ENDPOINT, filesRouter);

@@ -80,8 +80,10 @@ const optionalFileIdValidators = [
   },
 ];
 
+const isShareExpired = (file) => file.shareExpAt <= new Date();
+
 const unshareFileWithExpiredShareDate = async (file) => {
-  if (file.isShared && file.shareExpAt <= new Date()) {
+  if (file.isShared && isShareExpired(file)) {
     await prismaClient.$executeRaw`
       WITH RECURSIVE children AS (
         SELECT files.*
@@ -125,8 +127,14 @@ const getFileOrThrowError = async (
   ownerIncluded = false
 ) => {
   try {
+    const where = { id: req.params.id };
+    if (req._shareRoute) {
+      where.isShared = true;
+    } else {
+      where.ownerId = req.user.id;
+    }
     const file = await prismaClient.file.findUnique({
-      where: { id: req.params.id, ownerId: req.user.id },
+      where,
       include: {
         children: childrenIncluded && { orderBy: { name: 'asc' } },
         metadata: metadataIncluded,
@@ -136,13 +144,18 @@ const getFileOrThrowError = async (
     });
     if (file) {
       await unshareFileWithExpiredShareDate(file);
-      return file;
+      if (
+        !req._shareRoute ||
+        (file.isShared && !isShareExpired(file.shareExpAt))
+      ) {
+        return file;
+      }
     }
-    throw new AppGenericError(FILE_NOT_FOUND_ERR_MSG, 404);
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     throw new AppGenericError(SERVER_ERR_MSG, 500);
   }
+  throw new AppGenericError(FILE_NOT_FOUND_ERR_MSG, 404);
 };
 
 /**
@@ -224,7 +237,9 @@ const redirectToDirIdOrRoot = (req, res, dirId) => {
 
 const assertParentExist = async (req, res, next) => {
   try {
-    if (req.params.id) await getFileOrThrowError(req);
+    if (req.params.id) {
+      res.locals._parent = await getFileOrThrowError(req);
+    }
     next();
   } catch (err) {
     if (err instanceof AppGenericError) {
@@ -360,6 +375,13 @@ module.exports = {
       try {
         // Get the file with its children or send 404 error
         const file = await getFileOrThrowError(req, true, true);
+        // Check whether it is a share route requesting a file that can be shared
+        if (
+          (!req.isAuthenticated() || req.user.id !== file.ownerId) &&
+          (!file.isShared || isShareExpired(file))
+        ) {
+          return next('route');
+        }
         if (file.parentId) {
           // Get the full parent chain if the parent's id is not `NULL`
           res.locals.parents = await prismaClient.$queryRaw`
@@ -367,18 +389,24 @@ module.exports = {
               SELECT files.*, 0 AS i
                 FROM files
                WHERE file_id  = ${file.parentId}::UUID
-                 AND owner_id = ${req.user.id}::INTEGER
                UNION
               SELECT files.*, i + 1
                 FROM files, parents
                WHERE files.file_id = parents.parent_id
             )
-            SELECT parent_id parentId, owner_id ownerId,
-                   file_name name, file_id id
+            SELECT is_shared "isShared", share_exp_at "shareExpAt",
+                   parent_id "parentId", owner_id "ownerId",
+                   file_name "name", file_id "id"
               FROM parents
           ORDER BY i
               DESC
           `;
+          if (!req.isAuthenticated() || req.user.id !== file.ownerId) {
+            // So it is a share route, hence the parents list must contain only shared parents
+            res.locals.parents = res.locals.parents.filter((p) => {
+              return p.isShared && !isShareExpired(p);
+            });
+          }
         }
         if (!file.isDir) {
           file.metadata.size = humanizeSizeUpToGBOnly(file.metadata.size);
@@ -443,6 +471,8 @@ module.exports = {
             name: req.body.name,
             ownerId: req.user.id,
             parentId: req.params.id,
+            isShared: res.locals._parent?.isShared || false,
+            shareExpAt: res.locals._parent?.shareExpAt || new Date(),
             metadata: {
               create: { encoding, mimetype, size, path: data.path },
             },
@@ -493,16 +523,17 @@ module.exports = {
     assertNameNotExist,
     async (req, res, next) => {
       try {
-        const parentId = req.params.id;
         await prismaClient.file.create({
           data: {
             isDir: true,
             name: req.body.name,
             ownerId: req.user.id,
-            parentId,
+            parentId: req.params.id,
+            isShared: res.locals._parent?.isShared || false,
+            shareExpAt: res.locals._parent?.shareExpAt || new Date(),
           },
         });
-        redirectToDirIdOrRoot(req, res, parentId);
+        redirectToDirIdOrRoot(req, res, req.params.id);
       } catch (err) {
         next(err);
       }

@@ -2,12 +2,15 @@ const AppGenericError = require('../errors/app-generic-error.js');
 
 module.exports = {
   handleAppErrors: (error, req, res, next) => {
+    if (error.statusCode === 404 || error.status === 404) {
+      error.name = 'Not Found';
+      error.statusCode = 404;
+      error.status = 404;
+      error.message = '';
+      error.stack = '';
+      return next(error);
+    }
     if (!(error instanceof AppGenericError)) {
-      if (error.statusCode === 404 || error.status === 404) {
-        error.name = 'Not Found';
-        error.statusCode = 404;
-        error.status = 404;
-      }
       error.stack = '';
       return next(error);
     }
