@@ -4,6 +4,10 @@ A stripped-down version of personal storage service like Google Drive. Built as 
 
 > Note: I deliberately minimized the project's UI, so I can focus on practicing the back-end technologies I am studying.
 
+## Prisma Schema Diagram
+
+![Project's database schema diagram](./prisma-schema-diagram/prisma-uml.png)
+
 ## Project Requirements
 
 > Note: These requirements were copied from The Odin Project's website at the time of building this project.
