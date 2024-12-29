@@ -14,6 +14,9 @@ const app = express();
 app.set('views', VIEWS_DIR);
 app.set('view engine', 'ejs');
 
+// Need to trust proxy to save session cookies when deployed
+app.set('trust proxy', 1);
+
 authenticate(app);
 
 app.use(express.urlencoded({ extended: true }));
