@@ -57,7 +57,7 @@
         </ol>
       </nav>
       <!-- prettier-ignore -->
-      <% if (!isShareRoute && locals.file && file.isDir && locals.user && user.id === file.ownerId) { %>
+      <% if (!isShareRoute && locals.file && file.isDir) { %>
       <!-- prettier-ignore -->
       <div class="text-secondary mb-3 d-flex flex-wrap gap-3 justify-content-between align-items-center" style="font-size: x-small;">
         <span>
@@ -69,14 +69,16 @@
         </span>
         <% if (file.isShared) { %>
           <span class="ms-auto">
-            <a
-              href="<%= `/share/${file.id}` %>"
-              role="button"
+            <!-- Button trigger modal -->
+            <button
+              type="button"
               class="btn btn-sm btn-outline-success fw-bold"
+              data-bs-toggle="modal"
+              data-bs-target="#shareLinkModal"
               style="font-size: x-small"
             >
-              Visit Shared Link
-            </a>
+              Show Share Link
+            </button>
             <a
               href="<%= `${baseUrl}/${file.id}/unshare` %>"
               role="button"
@@ -188,5 +190,92 @@
       </p>
       <% } %>
     </div>
+    <% if (!isShareRoute && locals.file && file.isDir && file.isShared) { %>
+    <!-- Modal -->
+    <div
+      class="modal fade"
+      id="shareLinkModal"
+      tabindex="-1"
+      aria-labelledby="shareLinkModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="shareLinkModalLabel">
+              Folder Share Link
+            </h1>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="p-3 border rounded">
+              <a
+                id="share-link"
+                href="<%= `/share/${file.id}` %>"
+                style="font-size: small"
+              >
+                Visit shared version of this folder
+              </a>
+              <script>
+                var shareLink = document.getElementById('share-link');
+                if (shareLink) shareLink.textContent = shareLink.href;
+                function handleError(error) {
+                  console.log(error);
+                  alert('Copy failed! You need to copy the link manually.');
+                }
+                function copyShareLink(btn) {
+                  try {
+                    navigator.clipboard
+                      .writeText(shareLink.href)
+                      .then(() => {
+                        btn.disabled = true;
+                        btn.className += ' disabled';
+                      })
+                      .catch(handleError);
+                  } catch (error) {
+                    handleError(error);
+                  }
+                }
+              </script>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary fw-bold"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button
+              id="copy-btn"
+              type="button"
+              class="btn btn-sm btn-outline-success fw-bold"
+              onclick="copyShareLink(this)"
+            >
+              Copy Share Link
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      var shareLinkModal = document.getElementById('shareLinkModal');
+      var copyBtn = document.getElementById('copy-btn');
+      if (shareLinkModal && copyBtn) {
+        shareLinkModal.addEventListener('hidden.bs.modal', () => {
+          if (copyBtn.disabled) {
+            copyBtn.disabled = false;
+            copyBtn.className = copyBtn.className.replace(' disabled', '');
+          }
+        });
+      }
+    </script>
+    <% } %>
   </body>
 </html>
